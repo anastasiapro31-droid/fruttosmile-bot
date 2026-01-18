@@ -16,7 +16,30 @@ scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
 ]
-creds = ServiceAccountCredentials.from_json_keyfile_name("fruttosmile_key.json", scope)
+import os
+import json
+from oauth2client.service_account import ServiceAccountCredentials
+
+# Scope для доступа к Google Sheets и Drive (оставь как было)
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive"
+]
+
+# Читаем ключ из переменной окружения (на Render)
+GOOGLE_KEY_JSON = os.getenv("GOOGLE_KEY_JSON")
+
+# Проверяем, что переменная вообще существует и не пустая
+if GOOGLE_KEY_JSON is None or GOOGLE_KEY_JSON.strip() == "":
+    raise ValueError("GOOGLE_KEY_JSON not set or empty in environment variables")
+
+# Преобразуем строку в словарь (JSON)
+creds_dict = json.loads(GOOGLE_KEY_JSON)
+
+# Создаём credentials из словаря (без файла!)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+
+# Дальше всё как было
 gc = gspread.authorize(creds)
 sheet = gc.open(SPREADSHEET_NAME).worksheet(SHEET_NAME)
 
