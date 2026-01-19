@@ -2,7 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+
 from datetime import datetime
 
 # ================= НАСТРОЙКИ =================
@@ -18,7 +18,7 @@ scope = [
 ]
 import os
 import json
-from oauth2client.service_account import ServiceAccountCredentials
+
 
 # Scope для доступа к Google Sheets и Drive (оставь как было)
 scope = [
@@ -37,8 +37,8 @@ if GOOGLE_KEY_JSON is None or GOOGLE_KEY_JSON.strip() == "":
 creds_dict = json.loads(GOOGLE_KEY_JSON)
 
 # Создаём credentials из словаря (без файла!)
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-
+from google.oauth2.service_account import Credentials
+creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 # Дальше всё как было
 gc = gspread.authorize(creds)
 sheet = gc.open(SPREADSHEET_NAME).worksheet(SHEET_NAME)
