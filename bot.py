@@ -279,13 +279,13 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not qty.isdigit() or int(qty) <= 0:
             await update.message.reply_text("Пожалуйста, введите положительное число (количество):")
             return
+
         context.user_data["qty"] = int(qty)
 
         # Формируем текст заказа
         order_text = (
             f"Новый заказ\n\n"
             f"Товар: {context.user_data.get('product', '-')}\n"
-            f"Вариант: {context.user_data.get('variant', '-')}\n"
             f"Количество: {context.user_data.get('qty', '-')}\n"
             f"Имя: {context.user_data.get('name', '-')}\n"
             f"Телефон: {context.user_data.get('phone', '-')}\n"
@@ -314,9 +314,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(ADMIN_CHAT_ID, f"Ошибка записи заказа:\n{error_msg}")
             await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
 
-        # Очищаем данные пользователя после заказа
         context.user_data.clear()
-
+    else:
+        await update.message.reply_text("Что-то пошло не так. Начните заново: /start")
+        context.user_data.clear()
     else:
         await update.message.reply_text("Что-то пошло не так. Начните заново: /start")
         context.user_data.clear()z
