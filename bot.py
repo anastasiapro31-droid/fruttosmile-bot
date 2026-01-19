@@ -314,12 +314,13 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 context.user_data.get('phone', '—'),
                 context.user_data.get('address', '—')
             ])
-        except Exception as e:
-            print(f"Ошибка записи в Google Sheets: {e}")
-            await context.bot.send_message(ADMIN_CHAT_ID, f"Ошибка записи заказа в таблицу: {e}")
-
-        await update.message.reply_text("✅ Заказ принят! Мы скоро свяжемся 💖")
-        context.user_data.clear()
+         # код записи в sheet
+except Exception as e:
+    import traceback
+    error_msg = traceback.format_exc()
+    print(f"Ошибка записи в Google Sheets:\n{error_msg}")
+    await context.bot.send_message(ADMIN_CHAT_ID, f"Ошибка записи заказа:\n{error_msg}")
+    await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
 
 # ================= MAIN =================
 def main():
