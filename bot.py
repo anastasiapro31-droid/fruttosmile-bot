@@ -275,65 +275,51 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = context.user_data.get("step", "qty")
 
     if step == "qty":
-        context.user_data["qty"] = update.message.text
-        context.user_data["step"] = "name"
-        await update.message.reply_text("Введите имя:")
+        qty = update.message.text.strip()
+        if not qty.isdigit() or int(qty) <= 0:
+            await update.message.reply_text("Пожалуйста, введите положительное число (количество):")
+            return
+        context.user_data["qty"] = int(qty)
 
-    elif step == "name":
-        context.user_data["name"] = update.message.text
-        context.user_data["step"] = "phone"
-        await update.message.reply_text("Введите телефон:")
-
-    elif step == "phone":
-        context.user_data["phone"] = update.message.text
-        context.user_data["step"] = "address"
-        await update.message.reply_text("Введите адрес доставки:")
-
-    elif step == "address":
-        context.user_data["address"] = update.message.text
-
+        # Формируем текст заказа
         order_text = (
-            f"🧾 Новый заказ\n\n"
-            f"Товар: {context.user_data.get('product', {}).get('name', '—')}\n"
-            f"Цена: {context.user_data.get('variant', '—')}\n"
-            f"Количество: {context.user_data.get('qty', '—')}\n"
-            f"Имя: {context.user_data.get('name', '—')}\n"
-            f"Телефон: {context.user_data.get('phone', '—')}\n"
-            f"Адрес: {context.user_data.get('address', '—')}"
+            f"Новый заказ\n\n"
+            f"Товар: {context.user_data.get('product', '-')}\n"
+            f"Вариант: {context.user_data.get('variant', '-')}\n"
+            f"Количество: {context.user_data.get('qty', '-')}\n"
+            f"Имя: {context.user_data.get('name', '-')}\n"
+            f"Телефон: {context.user_data.get('phone', '-')}\n"
+            f"Адрес: {context.user_data.get('address', '-')}\n"
         )
 
         await update.message.reply_text(order_text)
-        await context.bot.send_message(ADMIN_CHAT_ID, order_text)
-async def your_order_handler(update, context):
-try:
-    sheet.append_row([
-        datetime.now().strftime("%d.%m.%Y %H:%M"),
-        context.user_data.get('product', '-'),
-        context.user_data.get('variant', '-'),
-        context.user_data.get('qty', '-'),
-        context.user_data.get('name', '-'),
-        context.user_data.get('phone', '-'),
-        context.user_data.get('address', '-')
-    ])
-    print("Заказ успешно записан в Google Sheets")
-except Exception as e:
-    import traceback
-    error_msg = traceback.format_exc()
-    print(f"Ошибка записи в Google Sheets:\n{error_msg}")
-    await context.bot.send_message(ADMIN_CHAT_ID, f"Ошибка записи заказа:\n{error_msg}")
-    await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
-except Exception as e:
-    import traceback
-    error_msg = traceback.format_exc()
-    print(f"Ошибка записи в Google Sheets:\n{error_msg}")
-    await context.bot.send_message(ADMIN_CHAT_ID, f"Ошибка записи заказа:\n{error_msg}")
-    await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
-except Exception as e:
-    import traceback
-    error_msg = traceback.format_exc()
-    print(f"Ошибка записи в Google Sheets:\n{error_msg}")
-    await context.bot.send_message(ADMIN_CHAT_ID, f"Ошибка записи заказа:\n{error_msg}")
-    await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
+
+        # Запись в Google Sheets
+        try:
+            sheet.append_row([
+                datetime.now().strftime("%d.%m.%Y %H:%M"),
+                context.user_data.get('product', '-'),
+                context.user_data.get('variant', '-'),
+                context.user_data.get('qty', '-'),
+                context.user_data.get('name', '-'),
+                context.user_data.get('phone', '-'),
+                context.user_data.get('address', '-')
+            ])
+            print("Заказ успешно записан в Google Sheets")
+            await update.message.reply_text("Заказ успешно оформлен! Мы свяжемся с вами скоро ❤️")
+        except Exception as e:
+            import traceback
+            error_msg = traceback.format_exc()
+            print(f"Ошибка записи в Google Sheets:\n{error_msg}")
+            await context.bot.send_message(ADMIN_CHAT_ID, f"Ошибка записи заказа:\n{error_msg}")
+            await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
+
+        # Очищаем данные пользователя после заказа
+        context.user_data.clear()
+
+    else:
+        await update.message.reply_text("Что-то пошло не так. Начните заново: /start")
+        context.user_data.clear()z
 
 # ================= MAIN =================
 def main():
