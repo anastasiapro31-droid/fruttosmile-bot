@@ -305,16 +305,16 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(ADMIN_CHAT_ID, order_text)
 
         try:
-            sheet.append_row([
-                datetime.now().strftime("%d.%m.%Y %H:%M"),
-                context.user_data.get('product', {}).get('name', '—'),
-                context.user_data.get('variant', '—'),
-                context.user_data.get('qty', '—'),
-                context.user_data.get('name', '—'),
-                context.user_data.get('phone', '—'),
-                context.user_data.get('address', '—')
-            ])
-         # код записи в sheet
+          sheet.append_row([
+        datetime.now().strftime("%d.%m.%Y %H:%M"),
+        context.user_data.get('product', '-'),
+        context.user_data.get('variant', '-'),
+        context.user_data.get('qty', '-'),
+        context.user_data.get('name', '-'),
+        context.user_data.get('phone', '-'),
+        context.user_data.get('address', '-')
+    ])
+    print("Заказ успешно записан в Google Sheets")
 except Exception as e:
     import traceback
     error_msg = traceback.format_exc()
