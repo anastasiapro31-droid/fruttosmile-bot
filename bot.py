@@ -304,8 +304,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(order_text)
         await context.bot.send_message(ADMIN_CHAT_ID, order_text)
 
-        try:
-    sheet.append_row([
+try:
+    sheet.append_row([   # ← 4 пробела перед sheet
         datetime.now().strftime("%d.%m.%Y %H:%M"),
         context.user_data.get('product', '-'),
         context.user_data.get('variant', '-'),
@@ -321,6 +321,7 @@ except Exception as e:
     print(f"Ошибка записи в Google Sheets:\n{error_msg}")
     await context.bot.send_message(ADMIN_CHAT_ID, f"Ошибка записи заказа:\n{error_msg}")
     await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
+
 except Exception as e:
     import traceback
     error_msg = traceback.format_exc()
