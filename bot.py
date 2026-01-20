@@ -29,7 +29,7 @@ if GOOGLE_KEY_JSON:
     except Exception as e:
         logging.error(f"Ошибка Google Sheets: {e}")
 
-# ================= КАТАЛОГ ТОВАРОВ =================
+# ================= ПОЛНЫЙ КАТАЛОГ ТОВАРОВ =================
 PRODUCTS = {
     "boxes": {
         "0_3000": [
@@ -61,7 +61,7 @@ PRODUCTS = {
     }
 }
 
-# ================= ЛОГИКА =================
+# ================= ЛОГИКА БОТА =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
@@ -121,7 +121,7 @@ async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get('state')
     
-    # Обработка чека (фото или документ), если заказ уже оформлен
+    # ПЕРЕСЫЛКА ЧЕКА ОБ ОПЛАТЕ
     if not state and (update.message.photo or update.message.document):
         client_name = context.user_data.get('name', 'Клиент')
         caption = f"📄 ПОДТВЕРЖДЕНИЕ ОПЛАТЫ от {client_name}"
@@ -129,7 +129,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=update.message.photo[-1].file_id, caption=caption)
         else:
             await context.bot.send_document(chat_id=ADMIN_CHAT_ID, document=update.message.document.file_id, caption=caption)
-        await update.message.reply_text("Спасибо! Ваш чек получен и отправлен администратору. Мы скоро свяжемся с вами! ✨")
+        await update.message.reply_text("Спасибо! Ваш чек получен. Менеджер скоро свяжется с вами! ✨")
         return
 
     if not state: return
@@ -142,7 +142,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['state'] = 'WAIT_NAME'
             await update.message.reply_text("2️⃣ Как вас зовут?")
         except:
-            await update.message.reply_text("Пожалуйста, введите только число.")
+            await update.message.reply_text("Введите число.")
             
     elif state == 'WAIT_NAME':
         context.user_data['name'] = text
@@ -159,7 +159,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
         context.user_data['state'] = 'WAIT_DATE'
-        await update.message.reply_text("5️⃣ Дата и время доставки:")
+        await update.message.reply_text("5️⃣ Дата и время получения:")
         
     elif state == 'WAIT_DATE':
         context.user_data['delivery_time'] = text
@@ -195,7 +195,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"━━━━━━━━━━━━━━━\n"
         f"📦 Товар: {d.get('product')}\n"
         f"🔢 Кол-во: {d.get('qty')}\n"
-        f"💰 К ОПЛАТЕ: {total_final} ₽\n"
+        f"💰 ИТОГО: {total_final} ₽\n"
         f"👤 Клиент: {d.get('name')}\n"
         f"📞 Тел: {d.get('phone')}\n"
         f"🚛 Способ: {d.get('method')}\n"
@@ -205,31 +205,24 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"━━━━━━━━━━━━━━━"
     )
 
-    # 1. Отправка фото товара и деталей заказа АДМИНУ
+    # Отправка АДМИНУ
     try:
         await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=d.get('product_photo'), caption=summary)
     except:
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
 
-    # 2. Запись в таблицу
-    if sheet:
-        try:
-            sheet.append_row([datetime.now().strftime("%d.%m.%Y %H:%M"), d.get('product'), d.get('qty'), d.get('name'), d.get('phone'), d.get('method'), d.get('address'), d.get('delivery_time'), d.get('comment')])
-        except: pass
-
-    # 3. Инструкция клиенту
+    # Клиенту
     payment_text = (
         f"✅ **Заказ оформлен!**\n\n"
         f"💵 **Итоговая сумма: {total_final} ₽**\n"
         f"({total_items} ₽ + {d['delivery_fee']} ₽ доставка)\n\n"
         f"**Оплата:**\n"
-        f"• Перейдите по [ссылке на QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F).\n\n"
-        f"📸 **Важно:** После оплаты отправьте сюда скриншот чека. Бот перешлет его менеджеру."
+        f"• Оплатите по [ссылке на QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F).\n\n"
+        f"📸 **Важно:** После оплаты отправьте сюда скриншот чека."
     )
     
     msg = update.callback_query.message if update.callback_query else update.message
     await msg.reply_text(payment_text, parse_mode='Markdown')
-    # Очищаем только состояние, но оставляем имя для подписи чека
     context.user_data['state'] = None
 
 def main():
@@ -240,7 +233,6 @@ def main():
     app.add_handler(CallbackQueryHandler(subcat_handler, pattern="^sub_"))
     app.add_handler(CallbackQueryHandler(product_selected, pattern="^sel_"))
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
-    # Хендлер для текстов, фото и документов
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, text_handler))
     app.run_polling()
 
