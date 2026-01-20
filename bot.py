@@ -97,7 +97,7 @@ async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if cat == "meat":
         for p in PRODUCTS["meat"]:
             kb = [[InlineKeyboardButton("🛍 Заказать", callback_data=f"sel_{p['name'][:20]}")]]
-           await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(kb))
+           await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(keyboard))
     else:
         ranges = {
             "boxes": [("До 3000", "0_3000"), ("3000-5000", "3000_5000"), ("Более 5000", "5000_plus")],
@@ -106,7 +106,7 @@ async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         kb = [[InlineKeyboardButton(r[0], callback_data=f"sub_{cat}_{r[1]}")] for r in ranges[cat]]
         kb.append([InlineKeyboardButton("⬅️ Назад", callback_data="back")])
-        await query.edit_message_text("Выберите ценовой диапазон:", reply_markup=InlineKeyboardMarkup(kb))
+        await query.edit_message_text("Выберите ценовой диапазон:",reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -115,7 +115,7 @@ async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cat, r_key = data[1], "_".join(data[2:])
     for p in PRODUCTS[cat][r_key]:
         kb = [[InlineKeyboardButton("🛍 Заказать", callback_data=f"sel_{p['name'][:20]}")]]
-        await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(kb))
+        await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -166,7 +166,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.update({'phone': text, 'state': 'WAIT_METHOD'})
         kb = [[InlineKeyboardButton("🚚 Доставка (+400₽)", callback_data="method_delivery"), 
                InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]]
-        await update.message.reply_text("4️⃣ Способ получения:", reply_markup=InlineKeyboardMarkup(kb))
+        await update.message.reply_text("4️⃣ Способ получения:",reply_markup=InlineKeyboardMarkup(keyboard))
     elif state == 'WAIT_ADDRESS':
         context.user_data.update({'address': text, 'state': 'WAIT_DATE'})
         await update.message.reply_text("5️⃣ Дата и время доставки:")
