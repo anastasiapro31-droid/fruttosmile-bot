@@ -3,18 +3,17 @@ import os
 import json
 import re
 from datetime import datetime
-import gspread
-from google.oauth2.service_account import Credentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
 # ================= НАСТРОЙКИ =================
+# ВСТАВЬТЕ СЮДА ВАШ САМЫЙ НОВЫЙ ТОКЕН ОТ BOTFATHER
 BOT_TOKEN = "8539880271:AAH9lzZw5XvDmnvGI1T460up-ZJ3_SxPB1s"
 ADMIN_CHAT_ID = 1165444045 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# ================= КАТАЛОГ ТОВАРОВ =================
+# ================= КАТАЛОГ ТОВАРОВ (ВСЕ СОХРАНЕНО) =================
 PRODUCTS = {
     "boxes": {
         "0_3000": [
@@ -94,12 +93,11 @@ async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     cat = query.data.replace("cat_", "")
     
-    # ПРОВЕРКА: Если это мясо, отправляем товары СРАЗУ
+    # ИСПРАВЛЕНО: Для мяса выводим сразу, для остальных - подкатегории
     if cat == "meat":
         for p in PRODUCTS["meat"]:
             kb = [[InlineKeyboardButton("🛍 Заказать", callback_data=f"sel_{p['name'][:20]}")]]
             await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(kb))
-    # Для остальных категорий показываем выбор цены
     else:
         ranges = {
             "boxes": [("До 3000", "0_3000"), ("3000-5000", "3000_5000"), ("Более 5000", "5000_plus")],
@@ -124,7 +122,6 @@ async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     p_name_part = query.data.replace("sel_", "")
     
-    # Поиск товара
     found = None
     for cat_key, cat_val in PRODUCTS.items():
         if isinstance(cat_val, list):
@@ -143,7 +140,6 @@ async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get('state')
     
-    # Обработка фото чека
     if not state and (update.message.photo or update.message.document):
         client = context.user_data.get('name', 'Клиент')
         caption = f"📄 ЧЕК ОБ ОПЛАТЕ от {client}"
