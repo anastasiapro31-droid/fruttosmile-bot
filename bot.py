@@ -159,43 +159,51 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     d = context.user_data
+    # Текст уведомления для ВАС (админа)
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"📦 Товар: {d['product']}\n"
-        f"🔢 Кол-во: {d['qty']}\n"
-        f"👤 Клиент: {d['name']}\n"
-        f"📞 Телефон: {d['phone']}\n"
-        f"🏠 Адрес: {d['address']}\n"
+        f"📦 Товар: {d.get('product')}\n"
+        f"🔢 Кол-во: {d.get('qty')}\n"
+        f"👤 Клиент: {d.get('name')}\n"
+        f"📞 Тел: {d.get('phone')}\n"
+        f"🚛 Способ: {d.get('method')}\n"
+        f"🏠 Адрес: {d.get('address')}\n"
+        f"⏰ Время: {d.get('delivery_time')}\n"
+        f"💬 Коммент: {d.get('comment')}\n"
         f"━━━━━━━━━━━━━━━"
     )
 
-    # 1. Уведомление вам
+    # 1. Отправка уведомления вам
     try:
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
     except Exception as e:
-        logging.error(f"Ошибка уведомления: {e}")
+        logging.error(f"Ошибка уведомления админа: {e}")
 
-    # 2. Запись в таблицу
+    # 2. Запись в Google Таблицу
     if sheet:
         try:
-            sheet.append_row([datetime.now().strftime("%d.%m.%Y %H:%M"), d['product'], d['qty'], d['name'], d['phone'], d['address']])
-        except:
-            pass
+            sheet.append_row([
+                datetime.now().strftime("%d.%m.%Y %H:%M"), 
+                d.get('product'), d.get('qty'), d.get('name'), 
+                d.get('phone'), d.get('method'), d.get('address'), 
+                d.get('delivery_time'), d.get('comment')
+            ])
+        except Exception as e:
+            logging.error(f"Ошибка записи в таблицу: {e}")
 
-    await update.message.reply_text("🎉 Заказ успешно оформлен! Мы свяжемся с вами в ближайшее время для подтверждения. Спасибо, что выбрали Fruttosmile! ❤️")
+    # 3. Инструкция по оплате КЛИЕНТУ
+    payment_text = (
+        "🎉 **Заказ оформлен!**\n\n"
+        "**Порядок оплаты:**\n"
+        "• Воспользуйтесь [ссылкой на QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F), чтобы сразу перейти к оплате. ☺️\n\n"
+        "• Либо сохраните QR-код (если он у вас есть) и в приложении банка: Платежи → Сканировать QR → загрузите картинку и внесите сумму.\n\n"
+        "После оплаты отправьте, пожалуйста, чек или скриншот в этот чат. 😇🫶"
+    )
+    
+    # Определяем, куда отправить ответ (на кнопку или на сообщение)
+    msg = update.callback_query.message if update.callback_query else update.message
+    await msg.reply_text(payment_text, parse_mode='Markdown', disable_web_page_preview=False)
+    
+    # Очищаем данные пользователя для нового заказа
     context.user_data.clear()
-
-# ================= ЗАПУСК =================
-def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(start, pattern="^back$"))
-    app.add_handler(CallbackQueryHandler(cat_handler, pattern="^cat_"))
-    app.add_handler(CallbackQueryHandler(subcat_handler, pattern="^sub_"))
-    app.add_handler(CallbackQueryHandler(product_selected, pattern="^sel_"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
