@@ -198,44 +198,45 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     d = context.user_data
-    # Считаем итог
-    total_items = d.get('price', 0) * d.get('qty', 1)
-    total_final = total_items + d.get('delivery_fee', 0)
+    # Считаем итоговую сумму
+    price = d.get('price', 0)
+    qty = d.get('qty', 1)
+    delivery = d.get('delivery_fee', 0)
+    total_final = (price * qty) + delivery
     
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
-        f"━━━━━━━━━━━━━━━\n"
         f"📦 Товар: {d.get('product')}\n"
-        f"🔢 Кол-во: {d.get('qty')}\n"
+        f"🔢 Кол-во: {qty}\n"
         f"💰 ИТОГО: {total_final} ₽\n"
         f"👤 Клиент: {d.get('name')}\n"
         f"📞 Тел: {d.get('phone')}\n"
         f"🚛 Способ: {d.get('method')}\n"
         f"🏠 Адрес: {d.get('address')}\n"
         f"⏰ Время: {d.get('delivery_time')}\n"
-        f"💬 Пожелания: {d.get('comment')}\n"
-        f"━━━━━━━━━━━━━━━"
+        f"💬 Пожелания: {d.get('comment')}"
     )
 
-    # Отправка ВАМ (админу)
+    # Отправка уведомления ВАМ (админу)
     try:
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
+        if d.get('product_photo'):
+            await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=d.get('product_photo'), caption=summary)
+        else:
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
     except Exception as e:
         print(f"Ошибка отправки админу: {e}")
 
-    # Сообщение КЛИЕНТУ
+    # Финальное сообщение КЛИЕНТУ
     payment_text = (
         f"✅ **Заказ оформлен!**\n\n"
-        f"💵 **Итоговая сумма: {total_final} ₽**\n\n"
-        f"**Оплата:**\n"
+        f"💵 **К оплате: {total_final} ₽**\n\n"
         f"• [Оплатить по QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F)\n\n"
-        f"📸 **Важно:** После оплаты отправьте сюда скриншот чека!"
+        f"📸 После оплаты пришлите сюда скриншот чека!"
     )
     
     target = update.message if update.message else update.callback_query.message
     await target.reply_text(payment_text, parse_mode='Markdown', disable_web_page_preview=True)
     context.user_data['state'] = None
-
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
