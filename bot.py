@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 # 1. НАСТРОЙКИ ЛОГИРОВАНИЯ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# 2. ПОЛНЫЙ СПИСОК ТОВАРОВ
+# 2. ПОЛНЫЙ СПИСОК ВСЕХ ТОВАРОВ
 PRODUCTS = {
     "boxes": {
         "0_3000": [
@@ -107,8 +107,9 @@ async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 def main():
-    # Ваш текущий токен
+    # ВНИМАНИЕ: Если этот токен не работает, замените его на актуальный из BotFather
     TOKEN = "8053988271:AAH9IzZw5XvDmnvGI1T468up-ZJ3_SxPB1s"
+    
     app = Application.builder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
