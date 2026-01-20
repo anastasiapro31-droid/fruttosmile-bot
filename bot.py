@@ -198,28 +198,35 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     d = context.user_data
+    # Расчет стоимости
     total_items = d.get('price', 0) * d.get('qty', 1)
     total_final = total_items + d.get('delivery_fee', 0)
     
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
-        f"📦 {d.get('product')}\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"📦 Товар: {d.get('product')}\n"
         f"🔢 Кол-во: {d.get('qty')}\n"
         f"💰 ИТОГО: {total_final} ₽\n"
-        f"👤 {d.get('name')}\n"
-        f"📞 {d.get('phone')}\n"
-        f"🚛 {d.get('method')}\n"
-        f"🏠 {d.get('address')}\n"
-        f"⏰ {d.get('delivery_time')}\n"
-        f"💬 {d.get('comment')}"
+        f"👤 Клиент: {d.get('name')}\n"
+        f"📞 Тел: {d.get('phone')}\n"
+        f"🚛 Способ: {d.get('method')}\n"
+        f"🏠 Адрес: {d.get('address')}\n"
+        f"⏰ Время: {d.get('delivery_time')}\n"
+        f"💬 Пожелания: {d.get('comment')}\n"
+        f"━━━━━━━━━━━━━━━"
     )
 
-    # Отправка админу
+    # Попытка отправить заказ ВАМ (админу)
     try:
-        await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=d.get('product_photo'), caption=summary)
-    except:
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
+        if d.get('product_photo'):
+            await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=d.get('product_photo'), caption=summary)
+        else:
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
+    except Exception as e:
+        print(f"Ошибка отправки админу: {e}")
 
+    # Сообщение КЛИЕНТУ об успешном оформлении
     payment_text = (
         f"✅ **Заказ оформлен!**\n\n"
         f"💵 **Итоговая сумма: {total_final} ₽**\n\n"
@@ -228,12 +235,13 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📸 **Важно:** После оплаты отправьте сюда скриншот чека!"
     )
     
-    # Исправленная логика ответа пользователю
+    # Отвечаем пользователю правильно
     if update.message:
         await update.message.reply_text(payment_text, parse_mode='Markdown', disable_web_page_preview=True)
     elif update.callback_query:
         await update.callback_query.message.reply_text(payment_text, parse_mode='Markdown', disable_web_page_preview=True)
     
+    # Сброс состояния для нового заказа
     context.user_data['state'] = None
 
 def main():
