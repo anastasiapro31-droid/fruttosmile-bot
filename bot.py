@@ -117,189 +117,58 @@ PRODUCTS = {
     }
 }
 
-# ================= START =================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("📦 Боксы", callback_data="cat_boxes")],
-        [InlineKeyboardButton("💐 Свежие букеты", callback_data="cat_flowers")],
-        [InlineKeyboardButton("🍖 Мясные букеты", callback_data="cat_meat")],
-        [InlineKeyboardButton("🍬 Сладкие букеты", callback_data="cat_sweet")],
-    ]
-    await update.message.reply_text(
-        "Добро пожаловать в Fruttosmile 💝\nВыберите категорию:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-# ================= НАЗАД =================
-async def go_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    keyboard = [
-        [InlineKeyboardButton("📦 Боксы", callback_data="cat_boxes")],
-        [InlineKeyboardButton("💐 Свежие букеты", callback_data="cat_flowers")],
-        [InlineKeyboardButton("🍖 Мясные букеты", callback_data="cat_meat")],
-        [InlineKeyboardButton("🍬 Сладкие букеты", callback_data="cat_sweet")],
-    ]
-    await query.edit_message_text(
-        "Вернулись назад. Выберите категорию:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-# ================= БОКСЫ =================
-async def boxes_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    keyboard = [
-        [InlineKeyboardButton("До 3000 ₽", callback_data="box_0_3000")],
-        [InlineKeyboardButton("3000–5000 ₽", callback_data="box_3000_5000")],
-        [InlineKeyboardButton("5000+ ₽", callback_data="box_5000_plus")],
-        [InlineKeyboardButton("← Назад", callback_data="back_main")],
-    ]
-    await query.edit_message_text("Выберите ценовую категорию боксов:", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def boxes_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    key = query.data.split("_", 1)[1]
-    context.user_data["box_key"] = key
-
-    products = PRODUCTS["boxes"][key]
-    print(f"Боксы {key}: {len(products)} товаров")
-
-    for product in products:
-        keyboard = [[InlineKeyboardButton("Выбрать", callback_data=f"select_box_{id(product)}")]]
-        await query.message.reply_photo(
-            photo=product["photo"],
-            caption=f"🎁 {product['name']}\n{product['price']}\n\n{product['desc']}",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-    keyboard_back = [[InlineKeyboardButton("← Назад в категории", callback_data="cat_boxes")]]
-    await query.message.reply_text("Вернуться:", reply_markup=InlineKeyboardMarkup(keyboard_back))
-
-# ================= СВЕЖИЕ БУКЕТЫ =================
-async def flowers_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    products = PRODUCTS["flowers"]
-    print(f"Свежие букеты: {len(products)} товаров")
-
-    for product in products:
-        keyboard = [[InlineKeyboardButton("Выбрать", callback_data=f"select_flower_{id(product)}")]]
-        await query.message.reply_photo(
-            photo=product["photo"],
-            caption=f"💐 {product['name']}\n{product['price']}\n\n{product['desc']}",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-    keyboard_back = [[InlineKeyboardButton("← Назад в меню", callback_data="back_main")]]
-    await query.message.reply_text("Вернуться:", reply_markup=InlineKeyboardMarkup(keyboard_back))
-
-# ================= МЯСНЫЕ БУКЕТЫ =================
-async def meat_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    products = PRODUCTS["meat"]
-    print(f"Мясные букеты: {len(products)} товаров")
-
-    for product in products:
-        keyboard = [[InlineKeyboardButton("Выбрать", callback_data=f"select_meat_{id(product)}")]]
-        await query.message.reply_photo(
-            photo=product["photo"],
-            caption=f"🍖 {product['name']}\n{product['price']}\n\n{product['desc']}",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-    keyboard_back = [[InlineKeyboardButton("← Назад в меню", callback_data="back_main")]]
-    await query.message.reply_text("Вернуться:", reply_markup=InlineKeyboardMarkup(keyboard_back))
-
-# ================= СЛАДКИЕ БУКЕТЫ =================
-async def sweet_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    keyboard = [
-        [InlineKeyboardButton("До 3000 ₽", callback_data="sweet_0_3000")],
-        [InlineKeyboardButton("3000–5000 ₽", callback_data="sweet_3000_5000")],
-        [InlineKeyboardButton("5000+ ₽", callback_data="sweet_5000_plus")],
-        [InlineKeyboardButton("← Назад", callback_data="back_main")],
-    ]
-    await query.edit_message_text("Выберите ценовую категорию сладких букетов:", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def sweet_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    key = query.data.split("_", 1)[1]
-    context.user_data["sweet_key"] = key
-
-    products = PRODUCTS["sweet"][key]
-    print(f"Сладкие букеты {key}: {len(products)} товаров")
-
-    for product in products:
-        keyboard = [[InlineKeyboardButton("Выбрать", callback_data=f"select_sweet_{id(product)}")]]
-        await query.message.reply_photo(
-            photo=product["photo"],
-            caption=f"🍬 {product['name']}\n{product['price']}\n\n{product['desc']}",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-    keyboard_back = [[InlineKeyboardButton("← Назад в категории", callback_data="cat_sweet")]]
-    await query.message.reply_text("Вернуться:", reply_markup=InlineKeyboardMarkup(keyboard_back))
-
 # ================= ВЫБОР ТОВАРА =================
 async def product_selected(update, context):
-    # код
     query = update.callback_query
     await query.answer()
-
+ 
     data = query.data
-
+ 
     if data.startswith("select_"):
-        # Здесь можно сохранять выбранный товар в user_data
-        # Пока просто подтверждаем
+        # Извлекаем техническое название товара из callback_data
+        product_name = data.replace("select_", "") 
+        
+        # СОХРАНЯЕМ ДАННЫЕ В КОНТЕКСТ
+        context.user_data['product'] = product_name      
+        context.user_data['step'] = 'qty'                
+        
         await query.message.reply_text("Товар выбран! Введите количество:")
 
 # ================= ОФОРМЛЕНИЕ ЗАКАЗА =================
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Проверяем, выбрал ли пользователь товар перед вводом текста
     if 'product' not in context.user_data:
         await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
         context.user_data.clear()
         return
-
+ 
     step = context.user_data.get("step", "qty")
-
+ 
     if step == "qty":
-        qty = update.message.text.strip()
-        if not qty.isdigit() or int(qty) <= 0:
+        qty_text = update.message.text.strip()
+        
+        # Валидация числа
+        if not qty_text.isdigit() or int(qty_text) <= 0:
             await update.message.reply_text("Пожалуйста, введите положительное число (количество):")
             return
-
-        context.user_data["qty"] = int(qty)
-
-        # Формируем текст заказа
+ 
+        context.user_data["qty"] = int(qty_text)
+ 
+        # Формируем текст для пользователя
         order_text = (
-            f"Новый заказ\n\n"
+            f"✅ Проверьте ваш заказ:\n\n"
             f"Товар: {context.user_data.get('product', '-')}\n"
             f"Количество: {context.user_data.get('qty', '-')}\n"
-            f"Имя: {context.user_data.get('name', '-')}\n"
-            f"Телефон: {context.user_data.get('phone', '-')}\n"
-            f"Адрес: {context.user_data.get('address', '-')}\n"
         )
-
         await update.message.reply_text(order_text)
-
+ 
         # Запись в Google Sheets
         try:
+            # Убедитесь, что переменная 'sheet' и 'datetime' определены выше в коде
             sheet.append_row([
                 datetime.now().strftime("%d.%m.%Y %H:%M"),
                 context.user_data.get('product', '-'),
-                context.user_data.get('variant', '-'),
+                context.user_data.get('variant', '-'), # Если используется
                 context.user_data.get('qty', '-'),
                 context.user_data.get('name', '-'),
                 context.user_data.get('phone', '-'),
@@ -311,38 +180,46 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             import traceback
             error_msg = traceback.format_exc()
             print(f"Ошибка записи в Google Sheets:\n{error_msg}")
-            await context.bot.send_message(ADMIN_CHAT_ID, f"Ошибка записи заказа:\n{error_msg}")
-            await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
-
+            # Убедитесь, что ADMIN_CHAT_ID определен в начале файла
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"Ошибка записи заказа:\n{error_msg}")
+            await update.message.reply_text("Произошла ошибка при сохранении. Но мы уже получили уведомление!")
+ 
+        # Очищаем данные после успешного завершения
         context.user_data.clear()
     else:
-        await update.message.reply_text("Что-то пошло не так. Начните заново: /start")
+        await update.message.reply_text("Пожалуйста, начните сначала: /start")
         context.user_data.clear()
-
-
-# ================= MAIN =================
+ 
+# ================= ОСНОВНАЯ ЧАСТЬ (MAIN) =================
 def main():
+    # Используем ApplicationBuilder для создания приложения
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-
+ 
+    # Регистрация команд
     app.add_handler(CommandHandler("start", start))
+    
+    # Регистрация переходов "Назад"
     app.add_handler(CallbackQueryHandler(go_back, pattern="^back_main$"))
-
+ 
+    # Категории и цены
     app.add_handler(CallbackQueryHandler(boxes_category, pattern="^cat_boxes$"))
     app.add_handler(CallbackQueryHandler(boxes_price, pattern="^box_(0_3000|3000_5000|5000_plus)$"))
-
+ 
     app.add_handler(CallbackQueryHandler(flowers_category, pattern="^cat_flowers$"))
-
+ 
     app.add_handler(CallbackQueryHandler(meat_category, pattern="^cat_meat$"))
-
+ 
     app.add_handler(CallbackQueryHandler(sweet_category, pattern="^cat_sweet$"))
     app.add_handler(CallbackQueryHandler(sweet_price, pattern="^sweet_(0_3000|3000_5000|5000_plus)$"))
-
+ 
+    # Обработка нажатия кнопки "Выбрать"
     app.add_handler(CallbackQueryHandler(product_selected, pattern="^select_"))
-
+ 
+    # Обработка ввода количества (любой текст, который не команда)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-
-    print("Bot started")
+ 
+    print("Бот запущен и готов к работе...")
     app.run_polling()
-
+ 
 if __name__ == "__main__":
     main()
