@@ -108,7 +108,7 @@ async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     # ВНИМАНИЕ: Если этот токен не работает, замените его на актуальный из BotFather
-    TOKEN = "8053988271:AAH9IzZw5XvDmnvGI1T468up-ZJ3_SxPB1s"
+    TOKEN = "8539880271:AAH9lzZw5XvDmnvGI1T460up-ZJ3_SxPB1s"
     
     app = Application.builder().token(TOKEN).build()
     
