@@ -127,44 +127,56 @@ async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text(f"✅ Вы выбрали: {context.user_data.get('product')}\n\n1️⃣ Укажите количество (цифрами):")
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.user_data.get('state')
-    if not state and (update.message.photo or update.message.document):
-        client_name = context.user_data.get('name', 'Клиент')
-        caption = f"📄 ЧЕК от {client_name}"
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=caption)
-        if update.message.photo:
-            await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=update.message.photo[-1].file_id)
-        else:
-            await context.bot.send_document(chat_id=ADMIN_CHAT_ID, document=update.message.document.file_id)
-        await update.message.reply_text("Спасибо! Чек получен. Менеджер скоро свяжется! ✨")
+    # Если сообщения нет (например, пришло фото), выходим
+    if not update.message or not update.message.text:
+        # Но если это фото и мы ждем чек — обрабатываем
+        if (update.message.photo or update.message.document) and not context.user_data.get('state'):
+            client_name = context.user_data.get('name', 'Клиент')
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"📄 ЧЕК от {client_name}")
+            if update.message.photo:
+                await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=update.message.photo[-1].file_id)
+            else:
+                await context.bot.send_document(chat_id=ADMIN_CHAT_ID, document=update.message.document.file_id)
+            await update.message.reply_text("Спасибо! Чек получен. Менеджер скоро свяжется! ✨")
         return
-    if not state: return
-    text = update.message.text
+
+    state = context.user_data.get('state')
+    text = update.message.text.strip()
+
     if state == 'WAIT_QTY':
-        qty = re.sub(r'\D', '', text)
-        if qty:
-            context.user_data['qty'] = int(qty)
+        # Очищаем текст от всего, кроме цифр
+        qty_digits = re.sub(r'\D', '', text)
+        if qty_digits:
+            context.user_data['qty'] = int(qty_digits)
             context.user_data['state'] = 'WAIT_NAME'
             await update.message.reply_text("2️⃣ Как вас зовут?")
         else:
-            await update.message.reply_text("Введите число.")
+            await update.message.reply_text("Пожалуйста, введите количество числом (например: 1).")
+            
     elif state == 'WAIT_NAME':
         context.user_data['name'] = text
         context.user_data['state'] = 'WAIT_PHONE'
         await update.message.reply_text("3️⃣ Ваш номер телефона:")
+        
     elif state == 'WAIT_PHONE':
         context.user_data['phone'] = text
         context.user_data['state'] = 'WAIT_METHOD'
-        kb = [[InlineKeyboardButton("🚚 Доставка (+400₽)", callback_data="method_delivery"), InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]]
+        kb = [
+            [InlineKeyboardButton("🚚 Доставка (+400₽)", callback_data="method_delivery")],
+            [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]
+        ]
         await update.message.reply_text("4️⃣ Способ получения:", reply_markup=InlineKeyboardMarkup(kb))
+        
     elif state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
         context.user_data['state'] = 'WAIT_DATE'
         await update.message.reply_text("5️⃣ Дата и время доставки:")
+        
     elif state == 'WAIT_DATE':
         context.user_data['delivery_time'] = text
         context.user_data['state'] = 'WAIT_COMMENT'
         await update.message.reply_text("6️⃣ Пожелания (текст открытки и т.д.):")
+        
     elif state == 'WAIT_COMMENT':
         context.user_data['comment'] = text
         await finish_order(update, context)
@@ -186,16 +198,42 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     d = context.user_data
-    total_items = d['price'] * d['qty']
-    total_final = total_items + d['delivery_fee']
-    summary = (f"🔔 НОВЫЙ ЗАКАЗ!\n📦 {d.get('product')}\n🔢 Кол-во: {d.get('qty')}\n💰 ИТОГО: {total_final} ₽\n👤 {d.get('name')}\n📞 {d.get('phone')}\n🚛 {d.get('method')}\n🏠 {d.get('address')}\n⏰ {d.get('delivery_time')}\n💬 {d.get('comment')}")
+    total_items = d.get('price', 0) * d.get('qty', 1)
+    total_final = total_items + d.get('delivery_fee', 0)
+    
+    summary = (
+        f"🔔 НОВЫЙ ЗАКАЗ!\n"
+        f"📦 {d.get('product')}\n"
+        f"🔢 Кол-во: {d.get('qty')}\n"
+        f"💰 ИТОГО: {total_final} ₽\n"
+        f"👤 {d.get('name')}\n"
+        f"📞 {d.get('phone')}\n"
+        f"🚛 {d.get('method')}\n"
+        f"🏠 {d.get('address')}\n"
+        f"⏰ {d.get('delivery_time')}\n"
+        f"💬 {d.get('comment')}"
+    )
+
+    # Отправка админу
     try:
         await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=d.get('product_photo'), caption=summary)
     except:
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
-    payment_text = (f"✅ **Оформлено!**\n\n💵 **К оплате: {total_final} ₽**\n\n[Оплатить по QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F)\n\n📸 Отправьте сюда скриншот чека!")
-    msg = update.callback_query.message if update.callback_query else update.message
-    await msg.reply_text(payment_text, parse_mode='Markdown')
+
+    payment_text = (
+        f"✅ **Заказ оформлен!**\n\n"
+        f"💵 **Итоговая сумма: {total_final} ₽**\n\n"
+        f"**Оплата:**\n"
+        f"• [Оплатить по QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F)\n\n"
+        f"📸 **Важно:** После оплаты отправьте сюда скриншот чека!"
+    )
+    
+    # Исправленная логика ответа пользователю
+    if update.message:
+        await update.message.reply_text(payment_text, parse_mode='Markdown', disable_web_page_preview=True)
+    elif update.callback_query:
+        await update.callback_query.message.reply_text(payment_text, parse_mode='Markdown', disable_web_page_preview=True)
+    
     context.user_data['state'] = None
 
 def main():
