@@ -61,7 +61,7 @@ PRODUCTS = {
     }
 }
 
-# ================= ЛОГИКА БОТА =================
+# ================= ЛОГИКА =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
@@ -142,7 +142,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['state'] = 'WAIT_NAME'
             await update.message.reply_text("2️⃣ Как вас зовут?")
         except:
-            await update.message.reply_text("Введите число.")
+            await update.message.reply_text("Пожалуйста, введите только число.")
             
     elif state == 'WAIT_NAME':
         context.user_data['name'] = text
@@ -159,12 +159,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
         context.user_data['state'] = 'WAIT_DATE'
-        await update.message.reply_text("5️⃣ Дата и время получения:")
+        await update.message.reply_text("5️⃣ Дата и время доставки:")
         
     elif state == 'WAIT_DATE':
         context.user_data['delivery_time'] = text
         context.user_data['state'] = 'WAIT_COMMENT'
-        await update.message.reply_text("6️⃣ Пожелания или текст для открытки:")
+        await update.message.reply_text("6️⃣ Пожелания по оформлению (текст для открытки и т.д.):")
         
     elif state == 'WAIT_COMMENT':
         context.user_data['comment'] = text
@@ -205,20 +205,23 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"━━━━━━━━━━━━━━━"
     )
 
-    # Отправка АДМИНУ
     try:
         await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=d.get('product_photo'), caption=summary)
     except:
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
 
-    # Клиенту
+    if sheet:
+        try:
+            sheet.append_row([datetime.now().strftime("%d.%m.%Y %H:%M"), d.get('product'), d.get('qty'), d.get('name'), d.get('phone'), d.get('method'), d.get('address'), d.get('delivery_time'), d.get('comment')])
+        except: pass
+
     payment_text = (
         f"✅ **Заказ оформлен!**\n\n"
         f"💵 **Итоговая сумма: {total_final} ₽**\n"
-        f"({total_items} ₽ + {d['delivery_fee']} ₽ доставка)\n\n"
+        f"({total_items} ₽ за товар + {d['delivery_fee']} ₽ доставка)\n\n"
         f"**Оплата:**\n"
         f"• Оплатите по [ссылке на QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F).\n\n"
-        f"📸 **Важно:** После оплаты отправьте сюда скриншот чека."
+        f"📸 **Важно:** После оплаты отправьте сюда скриншот чека. Мы сразу приступим к работе!"
     )
     
     msg = update.callback_query.message if update.callback_query else update.message
