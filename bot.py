@@ -28,29 +28,19 @@ scope = [
 GOOGLE_KEY_JSON = os.getenv("GOOGLE_KEY_JSON")
 
 if GOOGLE_KEY_JSON is None or GOOGLE_KEY_JSON.strip() == "":
-    raise ValueError("GOOGLE_KEY_JSON не найдена в переменных окружения Render!")
-
-try:
-    creds_dict = json.loads(GOOGLE_KEY_JSON)
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    gc = gspread.authorize(creds)
-    sheet = gc.open(SPREADSHEET_NAME).worksheet(SHEET_NAME)
-except Exception as e:
-    print(f"Ошибка подключения к Google Sheets: {e}")
-
-# ================= ФУНКЦИЯ START =================
-# Мы ставим её здесь, чтобы она была определена до вызова в main()
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("📦 Боксы", callback_data="cat_boxes")],
-        [InlineKeyboardButton("💐 Свежие букеты", callback_data="cat_flowers")],
-        [InlineKeyboardButton("🍖 Мясные букеты", callback_data="cat_meat")],
-        [InlineKeyboardButton("🍬 Сладкие букеты", callback_data="cat_sweet")],
-    ]
-    await update.message.reply_text(
-        "Добро пожаловать в Fruttosmile 💝\nВыберите категорию:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    # Если вы запускаете локально для теста, можно временно заменить на путь к файлу
+    # Но для Render переменная GOOGLE_KEY_JSON обязательна
+    print("ВНИМАНИЕ: GOOGLE_KEY_JSON не найдена. Бот может не записать данные в таблицу.")
+    sheet = None
+else:
+    try:
+        creds_dict = json.loads(GOOGLE_KEY_JSON)
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        gc = gspread.authorize(creds)
+        sheet = gc.open(SPREADSHEET_NAME).worksheet(SHEET_NAME)
+    except Exception as e:
+        print(f"Ошибка подключения к Google Sheets: {e}")
+        sheet = None
 
 # ================= ТОВАРЫ ====================
 PRODUCTS = {
@@ -64,20 +54,16 @@ PRODUCTS = {
             {"name": "Клубника 12 ягод", "price": "2590 ₽", "desc": "В бельгийском шоколаде", "photo": "http://fruttosmile.su/wp-content/uploads/2014/03/photo_5449855732875908292_y.jpg", "variants": None},
             {"name": "Круглая коробка бананы+клубника", "price": "2290 ₽", "desc": "Микс в коробке", "photo": "http://fruttosmile.su/wp-content/uploads/2025/02/kruglaya-korobka-banany-i-klubnika-v-shokolade.jpg", "variants": None},
             {"name": "Сердечко клубника+бананы", "price": "2490 ₽", "desc": "Мини-сердце", "photo": "http://fruttosmile.su/wp-content/uploads/2025/02/serdechko-klubnika-i-banany-v-shokolade.png", "variants": None},
-            # добавь сюда остальные товары до 3000 ₽
         ],
         "3000_5000": [
             {"name": "Новогоднее сердце с клубникой", "price": "от 3490 ₽", "desc": "С голубикой и декором", "photo": "http://fruttosmile.su/wp-content/uploads/2025/12/image-17-12-25-06-50-2.png", "variants": [("Малое — 3490", "3490"), ("Среднее — 4490", "4490"), ("Большое — 5490", "5490")]},
             {"name": "Набор клубники и малины", "price": "2990 ₽", "desc": "7 клубник + 8–10 малины", "photo": "http://fruttosmile.su/wp-content/uploads/2025/06/malinki-takie-vecerinki.jpg", "variants": None},
             {"name": "Набор с финиками и черешней/малиной", "price": "от 2390 ₽", "desc": "С орехами в шоколаде", "photo": "http://fruttosmile.su/wp-content/uploads/2025/06/ceresenki.jpg", "variants": [("С черешней — 2390", "2390"), ("С малиной — 2990", "2990")]},
-            # добавь сюда остальные товары 3000–5000 ₽
         ],
         "5000_plus": [
             {"name": "Бокс «Ассорти»", "price": "6990 ₽", "desc": "Шоколад + клубника + орехи", "photo": "http://fruttosmile.su/wp-content/uploads/2017/02/900-1080-piks.-880-1080-piks.-860-1080-piks.-840-1080-piks.-830-1080-piks.-820-1080-piks.png", "variants": None},
-            # добавь сюда остальные товары от 5000 ₽
         ]
     },
-
     "flowers": [
         {"name": "Моно букет «Диантусы»", "price": "2690 ₽", "desc": "Моно-букет", "photo": "http://fruttosmile.su/wp-content/uploads/2025/02/mono-buket-diantusy.png", "variants": None},
         {"name": "Букет из гипсофилы в шляпной коробке", "price": "3290 ₽", "desc": "Воздушная гипсофила", "photo": "http://fruttosmile.su/wp-content/uploads/2025/03/photoeditorsdk_export_12__481x582.png", "variants": None},
@@ -93,14 +79,12 @@ PRODUCTS = {
         {"name": "Моно букет из кустовой розочки", "price": "5990 ₽", "desc": "Нежные кустовые розы", "photo": "http://fruttosmile.su/wp-content/uploads/2025/02/mono-buket-iz-nezhnoj-kustovoj-rozochki.png", "variants": None},
         {"name": "Букет «Первый снег»", "price": "11490 ₽", "desc": "Зимний роскошный букет", "photo": "http://fruttosmile.su/wp-content/uploads/2016/10/r1w7h3k2q2e1vg1badull79xa3ttaryb.jpg", "variants": None},
     ],
-
     "meat": [
         {"name": "Букет «Мясной» стандарт", "price": "5990 ₽", "desc": "Мини 1,5 кг / Стандарт 2–2,1 кг", "photo": "http://fruttosmile.su/wp-content/uploads/2017/02/photo_2024-08-08_16-52-24.jpg", "variants": None},
         {"name": "Букет «Мясной» VIP", "price": "7990 ₽", "desc": "Вес ~3 кг", "photo": "http://fruttosmile.su/wp-content/uploads/2016/08/photo_2024-04-05_17-41-51-660x800.jpg", "variants": None},
         {"name": "Букет из раков", "price": "от 6990 ₽", "desc": "1 кг — 6990 / 2 кг — 10990", "photo": "http://fruttosmile.su/wp-content/uploads/2018/08/photo_2022-12-09_18-05-41.jpg", "variants": [("1 кг — 6990", "6990"), ("2 кг — 10990", "10990")]},
         {"name": "Букет из креветок и краба", "price": "9990 ₽", "desc": "Королевские креветки + клешни краба", "photo": "http://fruttosmile.su/wp-content/uploads/2018/08/photo_2022-12-09_18-05-36-2.jpg", "variants": None},
     ],
-
     "sweet": {
         "0_3000": [
             {"name": "Букет из сладостей «Зефирный»", "price": "2990 ₽", "desc": "Зефирный букет", "photo": "http://fruttosmile.su/wp-content/uploads/2017/01/photoeditorsdk-export192.png", "variants": None},
@@ -119,114 +103,142 @@ PRODUCTS = {
             {"name": "Букет в шляпной коробке с макаронсами", "price": "6990 ₽", "desc": "С макаронсами", "photo": "http://fruttosmile.su/wp-content/uploads/2017/04/photo_2024-08-08_15-59-41.jpg", "variants": None},
             {"name": "Букет клубничный с хризантемами", "price": "6990 ₽", "desc": "Хризантемы + 0,8–0,9 кг клубники", "photo": "http://fruttosmile.su/wp-content/uploads/2016/07/photoeditorsdk-export213.png", "variants": None},
             {"name": "Букет «Клубничная принцесса»", "price": "от 6990 ₽", "desc": "Ягоды + цветы", "photo": "http://fruttosmile.su/wp-content/uploads/2017/02/photoeditorsdk-export135.png", "variants": [("Малый — 6990", "6990"), ("Средний — 7990", "7990"), ("Большой — 9990", "9990")]},
-            # Добавь сюда остальные товары от 5000 ₽
         ]
     }
 }
 
-# ================= ВЫБОР ТОВАРА =================
-async def product_selected(update, context):
+# ================= ВСЕ ОБРАБОТЧИКИ (HANDLERS) =================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("📦 Боксы", callback_data="cat_boxes")],
+        [InlineKeyboardButton("💐 Свежие букеты", callback_data="cat_flowers")],
+        [InlineKeyboardButton("🍖 Мясные букеты", callback_data="cat_meat")],
+        [InlineKeyboardButton("🍬 Сладкие букеты", callback_data="cat_sweet")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    if update.callback_query:
+        await update.callback_query.edit_message_text("Выберите категорию:", reply_markup=reply_markup)
+    else:
+        await update.message.reply_text("Добро пожаловать в Fruttosmile 💝\nВыберите категорию:", reply_markup=reply_markup)
+
+async def go_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
- 
-    data = query.data
- 
-    if data.startswith("select_"):
-        # Извлекаем техническое название товара из callback_data
-        product_name = data.replace("select_", "") 
-        
-        # СОХРАНЯЕМ ДАННЫЕ В КОНТЕКСТ
-        context.user_data['product'] = product_name      
-        context.user_data['step'] = 'qty'                
-        
-        await query.message.reply_text("Товар выбран! Введите количество:")
+    await start(update, context)
 
-# ================= ОФОРМЛЕНИЕ ЗАКАЗА =================
+async def boxes_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [InlineKeyboardButton("До 3000 ₽", callback_data="box_0_3000")],
+        [InlineKeyboardButton("3000–5000 ₽", callback_data="box_3000_5000")],
+        [InlineKeyboardButton("5000+ ₽", callback_data="box_5000_plus")],
+        [InlineKeyboardButton("← Назад", callback_data="back_main")],
+    ]
+    await query.edit_message_text("Выберите ценовую категорию боксов:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def boxes_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    key = query.data.replace("box_", "")
+    products = PRODUCTS["boxes"].get(key, [])
+    for p in products:
+        kb = [[InlineKeyboardButton("Выбрать", callback_data=f"select_{p['name'][:30]}")]]
+        await query.message.reply_photo(photo=p["photo"], caption=f"🎁 {p['name']}\n{p['price']}\n\n{p['desc']}", reply_markup=InlineKeyboardMarkup(kb))
+    await query.message.reply_text("Вернуться:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("← Назад", callback_data="cat_boxes")]]))
+
+async def flowers_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    for p in PRODUCTS["flowers"]:
+        kb = [[InlineKeyboardButton("Выбрать", callback_data=f"select_{p['name'][:30]}")]]
+        await query.message.reply_photo(photo=p["photo"], caption=f"💐 {p['name']}\n{p['price']}\n\n{p['desc']}", reply_markup=InlineKeyboardMarkup(kb))
+    await query.message.reply_text("Вернуться:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("← Назад", callback_data="back_main")]]))
+
+async def meat_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    for p in PRODUCTS["meat"]:
+        kb = [[InlineKeyboardButton("Выбрать", callback_data=f"select_{p['name'][:30]}")]]
+        await query.message.reply_photo(photo=p["photo"], caption=f"🍖 {p['name']}\n{p['price']}\n\n{p['desc']}", reply_markup=InlineKeyboardMarkup(kb))
+    await query.message.reply_text("Вернуться:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("← Назад", callback_data="back_main")]]))
+
+async def sweet_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [InlineKeyboardButton("До 3000 ₽", callback_data="sweet_0_3000")],
+        [InlineKeyboardButton("3000–5000 ₽", callback_data="sweet_3000_5000")],
+        [InlineKeyboardButton("5000+ ₽", callback_data="sweet_5000_plus")],
+        [InlineKeyboardButton("← Назад", callback_data="back_main")],
+    ]
+    await query.edit_message_text("Выберите категорию сладких букетов:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def sweet_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    key = query.data.replace("sweet_", "")
+    products = PRODUCTS["sweet"].get(key, [])
+    for p in products:
+        kb = [[InlineKeyboardButton("Выбрать", callback_data=f"select_{p['name'][:30]}")]]
+        await query.message.reply_photo(photo=p["photo"], caption=f"🍬 {p['name']}\n{p['price']}\n\n{p['desc']}", reply_markup=InlineKeyboardMarkup(kb))
+    await query.message.reply_text("Вернуться:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("← Назад", callback_data="cat_sweet")]]))
+
+async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    product_name = query.data.replace("select_", "")
+    context.user_data['product'] = product_name
+    context.user_data['step'] = 'qty'
+    await query.message.reply_text(f"Вы выбрали: {product_name}\nВведите количество:")
+
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Проверяем, выбрал ли пользователь товар перед вводом текста
     if 'product' not in context.user_data:
         await update.message.reply_text("Что-то пошло не так. Начните заказ заново: /start")
-        context.user_data.clear()
         return
- 
+
     step = context.user_data.get("step", "qty")
- 
     if step == "qty":
-        qty_text = update.message.text.strip()
-        
-        # Валидация числа
-        if not qty_text.isdigit() or int(qty_text) <= 0:
-            await update.message.reply_text("Пожалуйста, введите положительное число (количество):")
+        text = update.message.text.strip()
+        if not text.isdigit() or int(text) <= 0:
+            await update.message.reply_text("Введите число (количество):")
             return
- 
-        context.user_data["qty"] = int(qty_text)
- 
-        # Формируем текст для пользователя
-        order_text = (
-            f"✅ Проверьте ваш заказ:\n\n"
-            f"Товар: {context.user_data.get('product', '-')}\n"
-            f"Количество: {context.user_data.get('qty', '-')}\n"
-        )
-        await update.message.reply_text(order_text)
- 
-        # Запись в Google Sheets
-        try:
-            # Убедитесь, что переменная 'sheet' и 'datetime' определены выше в коде
-            sheet.append_row([
-                datetime.now().strftime("%d.%m.%Y %H:%M"),
-                context.user_data.get('product', '-'),
-                context.user_data.get('variant', '-'), # Если используется
-                context.user_data.get('qty', '-'),
-                context.user_data.get('name', '-'),
-                context.user_data.get('phone', '-'),
-                context.user_data.get('address', '-')
-            ])
-            print("Заказ успешно записан в Google Sheets")
-            await update.message.reply_text("Заказ успешно оформлен! Мы свяжемся с вами скоро ❤️")
-        except Exception as e:
-            import traceback
-            error_msg = traceback.format_exc()
-            print(f"Ошибка записи в Google Sheets:\n{error_msg}")
-            # Убедитесь, что ADMIN_CHAT_ID определен в начале файла
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"Ошибка записи заказа:\n{error_msg}")
-            await update.message.reply_text("Произошла ошибка при сохранении. Но мы уже получили уведомление!")
- 
-        # Очищаем данные после успешного завершения
+        
+        context.user_data["qty"] = int(text)
+        product = context.user_data.get('product')
+        qty = context.user_data.get('qty')
+        
+        # Попытка записи в таблицу
+        if sheet:
+            try:
+                sheet.append_row([datetime.now().strftime("%d.%m.%Y %H:%M"), product, "", qty, update.effective_user.full_name, "", ""])
+                await update.message.reply_text(f"✅ Заказ принят!\nТовар: {product}\nКоличество: {qty}\nМы свяжемся с вами ❤️")
+            except Exception as e:
+                logging.error(f"Таблица ошибка: {e}")
+                await update.message.reply_text("Заказ принят, но не записан в таблицу (ошибка сервера).")
+        else:
+            await update.message.reply_text(f"Заказ принят локально (Таблица не подключена).\nТовар: {product}, Кол-во: {qty}")
+        
         context.user_data.clear()
-    else:
-        await update.message.reply_text("Пожалуйста, начните сначала: /start")
-        context.user_data.clear()
- 
-# ================= ОСНОВНАЯ ЧАСТЬ (MAIN) =================
+
+# ================= MAIN (ЗАПУСК) =================
 def main():
-    # Используем ApplicationBuilder для создания приложения
     app = ApplicationBuilder().token(BOT_TOKEN).build()
- 
-    # Регистрация команд
+
     app.add_handler(CommandHandler("start", start))
-    
-    # Регистрация переходов "Назад"
     app.add_handler(CallbackQueryHandler(go_back, pattern="^back_main$"))
- 
-    # Категории и цены
     app.add_handler(CallbackQueryHandler(boxes_category, pattern="^cat_boxes$"))
-    app.add_handler(CallbackQueryHandler(boxes_price, pattern="^box_(0_3000|3000_5000|5000_plus)$"))
- 
+    app.add_handler(CallbackQueryHandler(boxes_price, pattern="^box_"))
     app.add_handler(CallbackQueryHandler(flowers_category, pattern="^cat_flowers$"))
- 
     app.add_handler(CallbackQueryHandler(meat_category, pattern="^cat_meat$"))
- 
     app.add_handler(CallbackQueryHandler(sweet_category, pattern="^cat_sweet$"))
-    app.add_handler(CallbackQueryHandler(sweet_price, pattern="^sweet_(0_3000|3000_5000|5000_plus)$"))
- 
-    # Обработка нажатия кнопки "Выбрать"
+    app.add_handler(CallbackQueryHandler(sweet_price, pattern="^sweet_"))
     app.add_handler(CallbackQueryHandler(product_selected, pattern="^select_"))
- 
-    # Обработка ввода количества (любой текст, который не команда)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
- 
-    print("Бот запущен и готов к работе...")
+
+    print("Бот запущен...")
     app.run_polling()
- 
+
 if __name__ == "__main__":
     main()
