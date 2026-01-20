@@ -318,9 +318,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Что-то пошло не так. Начните заново: /start")
         context.user_data.clear()
-    else:
-        await update.message.reply_text("Что-то пошло не так. Начните заново: /start")
-        context.user_data.clear()z
+
 
 # ================= MAIN =================
 def main():
