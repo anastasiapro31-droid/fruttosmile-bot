@@ -98,11 +98,7 @@ async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if cat == "meat":
         for p in PRODUCTS["meat"]:
             kb = [[InlineKeyboardButton("🛍 Заказать", callback_data=f"sel_{p['name'][:20]}")]]
-            await query.message.reply_photo(
-                p["photo"], 
-                caption=f"{p['name']}\nЦена: {p['price']} ₽", 
-                reply_markup=InlineKeyboardMarkup(kb)
-            )
+            await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(kb))
     # Для остальных категорий показываем выбор цены
     else:
         ranges = {
