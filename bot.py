@@ -94,13 +94,17 @@ async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     cat = query.data.replace("cat_", "")
     
+    # ПРОВЕРКА: Если это мясо, отправляем товары СРАЗУ
     if cat == "meat":
-        # Мясные открываются сразу
         for p in PRODUCTS["meat"]:
             kb = [[InlineKeyboardButton("🛍 Заказать", callback_data=f"sel_{p['name'][:20]}")]]
-            await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(kb))
+            await query.message.reply_photo(
+                p["photo"], 
+                caption=f"{p['name']}\nЦена: {p['price']} ₽", 
+                reply_markup=InlineKeyboardMarkup(kb)
+            )
+    # Для остальных категорий показываем выбор цены
     else:
-        # Для остальных - выбор подкатегории
         ranges = {
             "boxes": [("До 3000", "0_3000"), ("3000-5000", "3000_5000"), ("Более 5000", "5000_plus")],
             "flowers": [("До 4000", "0_4000"), ("Более 4000", "4000_plus")],
