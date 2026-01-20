@@ -1,49 +1,56 @@
 import logging
+import os
+import json
+from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
-import gspread
-
-from datetime import datetime
 
 # ================= НАСТРОЙКИ =================
-BOT_TOKEN = "8539880271:AAH_ViAH5n3MdnATanMMDaoETHl2WGLYmn4"  # ← здесь твой токен от BotFather
-ADMIN_CHAT_ID = 1165444045  # ← твой Telegram ID
-
+BOT_TOKEN = "8539880271:AAH_ViAH5n3MdnATanMMDaoETHl2WGLYmn4"
+ADMIN_CHAT_ID = 1165444045
 SPREADSHEET_NAME = "Заказы Fruttosmile"
 SHEET_NAME = "Лист1"
 
+# Настройка логирования
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+# ================= GOOGLE TABLES =================
 scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
 ]
-import os
-import json
 
-
-# Scope для доступа к Google Sheets и Drive (оставь как было)
-scope = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive"
-]
-
-# Читаем ключ из переменной окружения (на Render)
 GOOGLE_KEY_JSON = os.getenv("GOOGLE_KEY_JSON")
 
-# Проверяем, что переменная вообще существует и не пустая
 if GOOGLE_KEY_JSON is None or GOOGLE_KEY_JSON.strip() == "":
-    raise ValueError("GOOGLE_KEY_JSON not set or empty in environment variables")
+    raise ValueError("GOOGLE_KEY_JSON не найдена в переменных окружения Render!")
 
-# Преобразуем строку в словарь (JSON)
-creds_dict = json.loads(GOOGLE_KEY_JSON)
+try:
+    creds_dict = json.loads(GOOGLE_KEY_JSON)
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    gc = gspread.authorize(creds)
+    sheet = gc.open(SPREADSHEET_NAME).worksheet(SHEET_NAME)
+except Exception as e:
+    print(f"Ошибка подключения к Google Sheets: {e}")
 
-# Создаём credentials из словаря (без файла!)
-from google.oauth2.service_account import Credentials
-creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-# Дальше всё как было
-gc = gspread.authorize(creds)
-sheet = gc.open(SPREADSHEET_NAME).worksheet(SHEET_NAME)
-
-logging.basicConfig(level=logging.INFO)
+# ================= ФУНКЦИЯ START =================
+# Мы ставим её здесь, чтобы она была определена до вызова в main()
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("📦 Боксы", callback_data="cat_boxes")],
+        [InlineKeyboardButton("💐 Свежие букеты", callback_data="cat_flowers")],
+        [InlineKeyboardButton("🍖 Мясные букеты", callback_data="cat_meat")],
+        [InlineKeyboardButton("🍬 Сладкие букеты", callback_data="cat_sweet")],
+    ]
+    await update.message.reply_text(
+        "Добро пожаловать в Fruttosmile 💝\nВыберите категорию:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 # ================= ТОВАРЫ ====================
 PRODUCTS = {
