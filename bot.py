@@ -176,7 +176,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 1. Отправка уведомления вам
     try:
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
+    await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=d.get('product_photo'), caption=summary)
     except Exception as e:
         logging.error(f"Ошибка уведомления админа: {e}")
 
