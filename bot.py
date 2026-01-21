@@ -198,42 +198,107 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     d = context.user_data
-    # Расчет итогов
     total_items = d.get('price', 0) * d.get('qty', 1)
-    total_final = total_items + d.get('delivery_fee', 0)
+    total_final   = total_items + d.get('delivery_fee', 0)
     
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
         f"📦 {d.get('product')}\n"
         f"🔢 Кол-во: {d.get('qty')}\n"
-        f"💰 ИТОГО: {total_final} ₽\n"
+        f"💰 ИТОГО: {total_final} ₽ (включая доставку {d.get('delivery_fee',0)} ₽)\n"
         f"👤 {d.get('name')}\n"
         f"📞 {d.get('phone')}\n"
         f"🚛 {d.get('method')}\n"
         f"🏠 {d.get('address')}\n"
         f"⏰ {d.get('delivery_time')}\n"
-        f"💬 {d.get('comment')}"
+        f"💬 {d.get('comment') or '—'}"
     )
 
-    # Отправка вам (админу)
     try:
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
+        # Если уже есть фото товара от клиента — пересылаем
+        if 'order_photo' in d:
+            if d.get('order_photo_type') == 'photo':
+                await context.bot.send_photo(
+                    chat_id=ADMIN_CHAT_ID,
+                    photo=d['order_photo'],
+                    caption="Фото заказа от клиента"
+                )
+            else:
+                await context.bot.send_document(
+                    chat_id=ADMIN_CHAT_ID,
+                    document=d['order_photo'],
+                    caption="Фото/файл заказа от клиента"
+                )
     except Exception as e:
-        print(f"Ошибка админа: {e}")
+        logging.error(f"Ошибка отправки админу: {e}")
+        # Можно клиенту сообщить, что проблема → но пока просто логируем
 
-    # Финальное сообщение клиенту
-    payment_text = (
-        f"✅ **Заказ оформлен!**\n\n"
-        f"💵 **К оплате: {total_final} ₽**\n\n"
-        f"• [Оплатить по QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F)\n\n"
-        f"📸 После оплаты пришлите сюда скриншот чека!"
-    )
-    
-    # ПРАВИЛЬНЫЙ ВЫБОР ЦЕЛИ (чтобы не было ошибки BadRequest)
-    target = update.message if update.message else update.callback_query.message
-    await target.reply_text(payment_text, parse_mode='Markdown', disable_web_page_preview=True)
-    
-    context.user_data['state'] = None
+    # Просим фото заказа (если нужно) или сразу оплату
+    # Для начала сделаем обязательным — потом можно по товару
+    context.user_data['state'] = 'WAIT_ORDER_PHOTO'
+    target = update.message if update.message else (update.callback_query.message if update.callback_query else None)
+    if target:
+        await target.reply_text(
+            "📸 Пожалуйста, пришлите фото того, что хотите заказать (надпись, оформление, конкретный вариант и т.д.)\n\n"
+            "После этого мы выставим точный счёт и реквизиты."
+        )
+
+
+# Улучшенный text_handler + media_handler
+async def media_or_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    state = context.user_data.get('state')
+
+    if update.message.photo or update.message.document:
+        file_id = None
+        file_type = None
+
+        if update.message.photo:
+            file_id = update.message.photo[-1].file_id   # самое большое фото
+            file_type = 'photo'
+        elif update.message.document:
+            file_id = update.message.document.file_id
+            file_type = 'document'
+
+        if state == 'WAIT_ORDER_PHOTO':
+            context.user_data['order_photo'] = file_id
+            context.user_data['order_photo_type'] = file_type
+            context.user_data['state'] = None
+
+            client_name = context.user_data.get('name', 'Клиент')
+            total = context.user_data.get('price', 0) * context.user_data.get('qty', 1) + context.user_data.get('delivery_fee', 0)
+
+            await update.message.reply_text(
+                f"Фото получено! Спасибо ❤️\n\n"
+                f"К оплате: **{total} ₽**\n\n"
+                f"Оплатите, пожалуйста, по ссылке:\n"
+                f"https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F\n\n"
+                "После оплаты пришлите скрин чека — и мы сразу начнём готовить ваш заказ!"
+            )
+
+            # Пересылаем админу фото заказа (если ещё не переслали)
+            try:
+                if file_type == 'photo':
+                    await context.bot.send_photo(ADMIN_CHAT_ID, file_id, caption=f"Фото заказа от {client_name}")
+                else:
+                    await context.bot.send_document(ADMIN_CHAT_ID, file_id, caption=f"Файл заказа от {client_name}")
+            except Exception as e:
+                logging.error(f"Не удалось переслать фото заказа: {e}")
+
+        elif state is None:  # уже после оформления — это чек
+            await context.bot.send_message(ADMIN_CHAT_ID, f"💳 Чек от {client_name}")
+            if file_type == 'photo':
+                await context.bot.send_photo(ADMIN_CHAT_ID, file_id)
+            else:
+                await context.bot.send_document(ADMIN_CHAT_ID, file_id)
+            await update.message.reply_text("Чек получен! Мы уже готовим ваш заказ ✨")
+
+        return
+
+    # Если обычный текст — обрабатываем как раньше
+    if update.message.text:
+        # ваш текущий код обработки состояний WAIT_QTY, WAIT_NAME и т.д.
+        # оставляем без изменений, только после WAIT_COMMENT вызываем finish_order
 
 def main():
     app = Application.builder().token(TOKEN).build()
