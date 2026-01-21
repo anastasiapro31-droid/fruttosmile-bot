@@ -296,21 +296,69 @@ async def media_or_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     # Если обычный текст — обрабатываем как раньше
+  # Если обычный текст — обрабатываем как раньше
     if update.message.text:
-        # ваш текущий код обработки состояний WAIT_QTY, WAIT_NAME и т.д.
-        # оставляем без изменений, только после WAIT_COMMENT вызываем finish_order
+        state = context.user_data.get('state')
+        text = update.message.text.strip()
+
+        if state == 'WAIT_QTY':
+            # Очищаем текст от всего, кроме цифр
+            qty_digits = re.sub(r'\D', '', text)
+            if qty_digits:
+                context.user_data['qty'] = int(qty_digits)
+                context.user_data['state'] = 'WAIT_NAME'
+                await update.message.reply_text("2️⃣ Как вас зовут?")
+            else:
+                await update.message.reply_text("Пожалуйста, введите количество числом (например: 1).")
+
+        elif state == 'WAIT_NAME':
+            context.user_data['name'] = text
+            context.user_data['state'] = 'WAIT_PHONE'
+            await update.message.reply_text("3️⃣ Ваш номер телефона:")
+
+        elif state == 'WAIT_PHONE':
+            context.user_data['phone'] = text
+            context.user_data['state'] = 'WAIT_METHOD'
+            kb = [
+                [InlineKeyboardButton("🚚 Доставка (+400₽)", callback_data="method_delivery")],
+                [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]
+            ]
+            await update.message.reply_text("4️⃣ Способ получения:", reply_markup=InlineKeyboardMarkup(kb))
+
+        elif state == 'WAIT_ADDRESS':
+            context.user_data['address'] = text
+            context.user_data['state'] = 'WAIT_DATE'
+            await update.message.reply_text("5️⃣ Дата и время доставки:")
+
+        elif state == 'WAIT_DATE':
+            context.user_data['delivery_time'] = text
+            context.user_data['state'] = 'WAIT_COMMENT'
+            await update.message.reply_text("6️⃣ Пожелания (текст открытки и т.д.):")
+
+        elif state == 'WAIT_COMMENT':
+            context.user_data['comment'] = text
+            await finish_order(update, context)
+
 
 def main():
     app = Application.builder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(start, pattern="^back$"))
     app.add_handler(CallbackQueryHandler(cat_handler, pattern="^cat_"))
     app.add_handler(CallbackQueryHandler(subcat_handler, pattern="^sub_"))
     app.add_handler(CallbackQueryHandler(product_selected, pattern="^sel_"))
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, text_handler))
+
+    # Самый важный хендлер — должен ловить и текст и фото и документы
+    app.add_handler(MessageHandler(
+        filters.TEXT | filters.PHOTO | filters.Document.ALL,
+        media_or_text_handler
+    ))
+
     print("Бот запущен...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
