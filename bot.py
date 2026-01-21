@@ -3,13 +3,13 @@ import re
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-
+ 
 # --- НАСТРОЙКИ ---
 TOKEN = "8539880271:AAH9lzZw5XvDmnvGI1T460up-ZJ3_SxPB1s"
 ADMIN_CHAT_ID = 5664273200 # ЗАМЕНИТЕ НА ВАШ ID ИЗ @userinfobot
-
+ 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
+ 
 # ПОЛНЫЙ КАТАЛОГ ТОВАРОВ
 PRODUCTS = {
     "boxes": {
@@ -65,7 +65,7 @@ PRODUCTS = {
         ]
     }
 }
-
+ 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     keyboard = [
@@ -80,7 +80,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup)
     else:
         await update.message.reply_text(text, reply_markup=reply_markup)
-
+ 
 async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -98,7 +98,7 @@ async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kb = [[InlineKeyboardButton(r[0], callback_data=f"sub_{cat}_{r[1]}")] for r in ranges[cat]]
         kb.append([InlineKeyboardButton("⬅️ Назад", callback_data="back")])
         await query.edit_message_text("Выберите бюджет:", reply_markup=InlineKeyboardMarkup(kb))
-
+ 
 async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -107,7 +107,7 @@ async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for p in items:
         kb = [[InlineKeyboardButton("🛍 Выбрать этот товар", callback_data=f"sel_{p['name'][:20]}")]]
         await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(kb))
-
+ 
 async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -126,61 +126,6 @@ async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['state'] = 'WAIT_QTY'
     await query.message.reply_text(f"✅ Вы выбрали: {context.user_data.get('product')}\n\n1️⃣ Укажите количество (цифрами):")
 
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Если сообщения нет (например, пришло фото), выходим
-    if not update.message or not update.message.text:
-        # Но если это фото и мы ждем чек — обрабатываем
-        if (update.message.photo or update.message.document) and not context.user_data.get('state'):
-            client_name = context.user_data.get('name', 'Клиент')
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"📄 ЧЕК от {client_name}")
-            if update.message.photo:
-                await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=update.message.photo[-1].file_id)
-            else:
-                await context.bot.send_document(chat_id=ADMIN_CHAT_ID, document=update.message.document.file_id)
-            await update.message.reply_text("Спасибо! Чек получен. Менеджер скоро свяжется! ✨")
-        return
-
-    state = context.user_data.get('state')
-    text = update.message.text.strip()
-
-    if state == 'WAIT_QTY':
-        # Очищаем текст от всего, кроме цифр
-        qty_digits = re.sub(r'\D', '', text)
-        if qty_digits:
-            context.user_data['qty'] = int(qty_digits)
-            context.user_data['state'] = 'WAIT_NAME'
-            await update.message.reply_text("2️⃣ Как вас зовут?")
-        else:
-            await update.message.reply_text("Пожалуйста, введите количество числом (например: 1).")
-            
-    elif state == 'WAIT_NAME':
-        context.user_data['name'] = text
-        context.user_data['state'] = 'WAIT_PHONE'
-        await update.message.reply_text("3️⃣ Ваш номер телефона:")
-        
-    elif state == 'WAIT_PHONE':
-        context.user_data['phone'] = text
-        context.user_data['state'] = 'WAIT_METHOD'
-        kb = [
-            [InlineKeyboardButton("🚚 Доставка (+400₽)", callback_data="method_delivery")],
-            [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]
-        ]
-        await update.message.reply_text("4️⃣ Способ получения:", reply_markup=InlineKeyboardMarkup(kb))
-        
-    elif state == 'WAIT_ADDRESS':
-        context.user_data['address'] = text
-        context.user_data['state'] = 'WAIT_DATE'
-        await update.message.reply_text("5️⃣ Дата и время доставки:")
-        
-    elif state == 'WAIT_DATE':
-        context.user_data['delivery_time'] = text
-        context.user_data['state'] = 'WAIT_COMMENT'
-        await update.message.reply_text("6️⃣ Пожелания (текст открытки и т.д.):")
-        
-    elif state == 'WAIT_COMMENT':
-        context.user_data['comment'] = text
-        await finish_order(update, context)
-
 async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -195,11 +140,11 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data['address'] = "—"
         context.user_data['state'] = 'WAIT_DATE'
         await query.edit_message_text("🏠 Когда заберете?")
-
+ 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     d = context.user_data
     total_items = d.get('price', 0) * d.get('qty', 1)
-    total_final   = total_items + d.get('delivery_fee', 0)
+    total_final = total_items + d.get('delivery_fee', 0)
     
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
@@ -213,10 +158,9 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"⏰ {d.get('delivery_time')}\n"
         f"💬 {d.get('comment') or '—'}"
     )
-
+ 
     try:
         await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
-        # Если уже есть фото товара от клиента — пересылаем
         if 'order_photo' in d:
             if d.get('order_photo_type') == 'photo':
                 await context.bot.send_photo(
@@ -232,10 +176,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
     except Exception as e:
         logging.error(f"Ошибка отправки админу: {e}")
-        # Можно клиенту сообщить, что проблема → но пока просто логируем
-
-    # Просим фото заказа (если нужно) или сразу оплату
-    # Для начала сделаем обязательным — потом можно по товару
+ 
     context.user_data['state'] = 'WAIT_ORDER_PHOTO'
     target = update.message if update.message else (update.callback_query.message if update.callback_query else None)
     if target:
@@ -244,8 +185,6 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "После этого мы выставим точный счёт и реквизиты."
         )
 
-
-# Улучшенный text_handler + media_handler
 async def media_or_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get('state')
 
@@ -254,18 +193,19 @@ async def media_or_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
         file_type = None
 
         if update.message.photo:
-            file_id = update.message.photo[-1].file_id   # самое большое фото
+            file_id = update.message.photo[-1].file_id
             file_type = 'photo'
         elif update.message.document:
             file_id = update.message.document.file_id
             file_type = 'document'
+
+        client_name = context.user_data.get('name', 'Клиент')
 
         if state == 'WAIT_ORDER_PHOTO':
             context.user_data['order_photo'] = file_id
             context.user_data['order_photo_type'] = file_type
             context.user_data['state'] = None
 
-            client_name = context.user_data.get('name', 'Клиент')
             total = context.user_data.get('price', 0) * context.user_data.get('qty', 1) + context.user_data.get('delivery_fee', 0)
 
             await update.message.reply_text(
@@ -276,7 +216,6 @@ async def media_or_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
                 "После оплаты пришлите скрин чека — и мы сразу начнём готовить ваш заказ!"
             )
 
-            # Пересылаем админу фото заказа (если ещё не переслали)
             try:
                 if file_type == 'photo':
                     await context.bot.send_photo(ADMIN_CHAT_ID, file_id, caption=f"Фото заказа от {client_name}")
@@ -285,7 +224,7 @@ async def media_or_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
             except Exception as e:
                 logging.error(f"Не удалось переслать фото заказа: {e}")
 
-        elif state is None:  # уже после оформления — это чек
+        elif state is None:  # чек после оформления
             await context.bot.send_message(ADMIN_CHAT_ID, f"💳 Чек от {client_name}")
             if file_type == 'photo':
                 await context.bot.send_photo(ADMIN_CHAT_ID, file_id)
@@ -295,14 +234,10 @@ async def media_or_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
         return
 
-    # Если обычный текст — обрабатываем как раньше
-  # Если обычный текст — обрабатываем как раньше
-    if update.message.text:
-        state = context.user_data.get('state')
+    if update.message and update.message.text:
         text = update.message.text.strip()
 
         if state == 'WAIT_QTY':
-            # Очищаем текст от всего, кроме цифр
             qty_digits = re.sub(r'\D', '', text)
             if qty_digits:
                 context.user_data['qty'] = int(qty_digits)
@@ -339,7 +274,6 @@ async def media_or_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
             context.user_data['comment'] = text
             await finish_order(update, context)
 
-
 def main():
     app = Application.builder().token(TOKEN).build()
 
@@ -350,15 +284,10 @@ def main():
     app.add_handler(CallbackQueryHandler(product_selected, pattern="^sel_"))
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
 
-    # Самый важный хендлер — должен ловить и текст и фото и документы
-    app.add_handler(MessageHandler(
-        filters.TEXT | filters.PHOTO | filters.Document.ALL,
-        media_or_text_handler
-    ))
+    app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO | filters.Document.ALL, media_or_text_handler))
 
     print("Бот запущен...")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
