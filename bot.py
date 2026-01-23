@@ -352,8 +352,13 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     elif state == "WAIT_COMMENT":
         context.user_data['comment'] = text
+        context.user_data['state'] = "WAIT_CONFIRM"
+        await show_order_preview(update, context)
 
+
+async def show_order_preview(update, context):
     d = context.user_data
+
     total = d['price'] * d['qty'] + d.get('delivery_fee', 0)
 
     text_order = (
@@ -371,8 +376,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("✅ Подтвердить заказ", callback_data="confirm_order")],
         [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")]
     ])
-
-    context.user_data['state'] = "WAIT_CONFIRM"
 
     await update.message.reply_text(
         text_order,
