@@ -362,6 +362,11 @@ async def show_order_preview(update, context):
 
     total = d['price'] * d['qty'] + d.get('delivery_fee', 0)
 
+async def show_order_preview(update, context):
+    d = context.user_data
+
+    total = d['price'] * d['qty'] + d.get('delivery_fee', 0)
+
     text_order = (
         "📋 **Проверьте ваш заказ:**\n\n"
         f"📦 Товар: {d.get('product')}\n"
@@ -375,11 +380,16 @@ async def show_order_preview(update, context):
 
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ Подтвердить заказ", callback_data="confirm_order")],
-        [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")]
+        [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")],
         [InlineKeyboardButton("📞 Связь с магазином", url="https://t.me/fruttosmile")]
     ])
 
-    await update.message.reply_text(
+    if update.message:
+    msg = update.message
+    else:
+    msg = update.callback_query.message
+
+await msg.reply_text(
         text_order,
         reply_markup=kb,
         parse_mode="Markdown"
