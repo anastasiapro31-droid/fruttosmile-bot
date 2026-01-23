@@ -350,13 +350,39 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['state'] = 'WAIT_COMMENT'
         await update.message.reply_text("6️⃣ Пожелания по оформлению (текст для открытки и т.д.):")
         
-    elif state == 'WAIT_COMMENT':
-        context.user_data['comment'] = text
-        await finish_order(update, context)
+elif state == 'WAIT_COMMENT':
+    context.user_data['comment'] = text
+
+    d = context.user_data
+    total = d['price'] * d['qty'] + d.get('delivery_fee', 0)
+
+    text_order = (
+        "📋 **Проверьте ваш заказ:**\n\n"
+        f"📦 Товар: {d.get('product')}\n"
+        f"🔢 Кол-во: {d.get('qty')}\n"
+        f"💰 Сумма: {total} ₽\n"
+        f"🚛 Способ: {d.get('method')}\n"
+        f"🏠 Адрес: {d.get('address')}\n"
+        f"⏰ Время: {d.get('delivery_time')}\n"
+        f"💬 Комментарий: {d.get('comment') or '—'}"
+    )
+
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Подтвердить заказ", callback_data="confirm_order")],
+        [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")]
+    ])
+
+    context.user_data['state'] = 'WAIT_CONFIRM'
+    await update.message.reply_text(
+        text_order,
+        reply_markup=kb,
+        parse_mode="Markdown"
+    )
 
 async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     if query.data == "method_delivery":
         context.user_data['method'] = "Доставка"
         context.user_data['delivery_fee'] = 400
@@ -371,9 +397,10 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     d = context.user_data
+
     total_items = d['price'] * d['qty']
-    total_final = total_items + d['delivery_fee']
-    
+    total_final = total_items + d.get('delivery_fee', 0)
+
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
         f"━━━━━━━━━━━━━━━\n"
@@ -385,18 +412,35 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🚛 Способ: {d.get('method')}\n"
         f"🏠 Адрес: {d.get('address')}\n"
         f"⏰ Время: {d.get('delivery_time')}\n"
-        f"💬 Коммент: {d.get('comment')}\n"
+        f"💬 Комментарий: {d.get('comment')}\n"
         f"━━━━━━━━━━━━━━━"
     )
 
     try:
-        await context.bot.send_photo(chat_id=ADMIN_CHAT_ID, photo=d.get('product_photo'), caption=summary)
+        await context.bot.send_photo(
+            chat_id=ADMIN_CHAT_ID,
+            photo=d.get('product_photo'),
+            caption=summary
+        )
     except:
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=summary)
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=summary
+        )
 
     if sheet:
         try:
-            sheet.append_row([datetime.now().strftime("%d.%m.%Y %H:%M"), d.get('product'), d.get('qty'), d.get('name'), d.get('phone'), d.get('method'), d.get('address'), d.get('delivery_time'), d.get('comment')])
+            sheet.append_row([
+                datetime.now().strftime("%d.%m.%Y %H:%M"),
+                d.get('product'),
+                d.get('qty'),
+                d.get('name'),
+                d.get('phone'),
+                d.get('method'),
+                d.get('address'),
+                d.get('delivery_time'),
+                d.get('comment')
+            ])
         except Exception as e:
             logging.error(e)
 
@@ -405,24 +449,44 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💵 **Итоговая сумма: {total_final} ₽**\n"
         f"({total_items} ₽ за товар + {d['delivery_fee']} ₽ доставка)\n\n"
         f"**Оплата:**\n"
-        f"• Оплатите по [ссылке на QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1?type=01&bank=100000000284&crc=F07F).\n\n"
-        f"📸 **Важно:** После оплаты отправьте сюда скриншот чека. Мы сразу приступим к работе!"
+        f"• Оплатите по [ссылке на QR]"
+        f"(https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1)\n\n"
+        f"📸 После оплаты отправьте сюда скриншот чека."
     )
-    
+
     msg = update.callback_query.message if update.callback_query else update.message
-    await msg.reply_text(payment_text, parse_mode='Markdown')
+    await msg.reply_text(payment_text, parse_mode="Markdown")
+
     context.user_data['state'] = None
+
+
+async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "confirm_order":
+        await finish_order(update, context)
+
+    elif query.data == "restart_order":
+        context.user_data.clear()
+        await query.message.reply_text("🔄 Заказ сброшен. Начнём заново.")
+        await start(update, context)
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(start, pattern="^back$"))
     app.add_handler(CallbackQueryHandler(cat_handler, pattern="^cat_"))
     app.add_handler(CallbackQueryHandler(subcat_handler, pattern="^sub_"))
     app.add_handler(CallbackQueryHandler(product_selected, pattern="^sel_"))
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
+    app.add_handler(CallbackQueryHandler(confirm_handler, pattern="^(confirm_order|restart_order)$"))
+
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, text_handler))
+
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
