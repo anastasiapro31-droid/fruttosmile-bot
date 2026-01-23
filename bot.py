@@ -254,6 +254,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💐 Свежие букеты", callback_data="cat_flowers")],
         [InlineKeyboardButton("🍖 Мясные букеты", callback_data="cat_meat")],
         [InlineKeyboardButton("🍬 Сладкие букеты", callback_data="cat_sweet")],
+        [InlineKeyboardButton("📞 Связь с магазином", url="https://t.me/fruttosmile")]
     ]
     text = "Добро пожаловать в Fruttosmile 💝\nВыберите категорию:"
     if update.callback_query:
@@ -375,6 +376,7 @@ async def show_order_preview(update, context):
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ Подтвердить заказ", callback_data="confirm_order")],
         [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")]
+        [InlineKeyboardButton("📞 Связь с магазином", url="https://t.me/fruttosmile")]
     ])
 
     await update.message.reply_text(
