@@ -350,8 +350,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['state'] = 'WAIT_COMMENT'
         await update.message.reply_text("6️⃣ Пожелания по оформлению (текст для открытки и т.д.):")
         
-elif state == 'WAIT_COMMENT':
-    context.user_data['comment'] = text
+    elif state == "WAIT_COMMENT":
+        context.user_data['comment'] = text
 
     d = context.user_data
     total = d['price'] * d['qty'] + d.get('delivery_fee', 0)
@@ -372,7 +372,8 @@ elif state == 'WAIT_COMMENT':
         [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")]
     ])
 
-    context.user_data['state'] = 'WAIT_CONFIRM'
+    context.user_data['state'] = "WAIT_CONFIRM"
+
     await update.message.reply_text(
         text_order,
         reply_markup=kb,
