@@ -437,7 +437,7 @@ elif query.data == "pay_courier":
         context.user_data['delivery_fee'] = 400
         context.user_data['state'] = 'WAIT_ADDRESS'
         await query.edit_message_text("📍 Укажите адрес доставки:")
-        
+         
     elif query.data == "method_pickup":
         context.user_data['method'] = "Самовывоз"
         context.user_data['delivery_fee'] = 0
