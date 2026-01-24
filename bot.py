@@ -524,7 +524,7 @@ async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == "confirm_order":
-    await show_payment_options(update, context)
+        await show_payment_options(update, context)
 
     elif query.data == "restart_order":
         context.user_data.clear()
