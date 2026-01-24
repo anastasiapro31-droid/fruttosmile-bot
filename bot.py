@@ -524,7 +524,7 @@ async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == "confirm_order":
-        await finish_order(update, context)
+    await show_payment_options(update, context)
 
     elif query.data == "restart_order":
         context.user_data.clear()
@@ -540,6 +540,7 @@ def main():
     app.add_handler(CallbackQueryHandler(subcat_handler, pattern="^sub_"))
     app.add_handler(CallbackQueryHandler(product_selected, pattern="^sel_"))
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
+    app.add_handler(CallbackQueryHandler(payment_handler, pattern="^pay_"))
     app.add_handler(CallbackQueryHandler(confirm_handler, pattern="^(confirm_order|restart_order)$"))
 
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, text_handler))
