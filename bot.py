@@ -430,17 +430,17 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Менеджер свяжется с вами для подтверждения заказа."
         )
 
+    await finish_order(update, context)
+
+
     elif query.data == "pay_courier":
         context.user_data["payment_method"] = "Оплата курьеру (наличные)"
 
-        await query.message.reply_text(
+    await query.message.reply_text(
             "💵 Оплата курьеру наличными.\n"
             "Пожалуйста, подготовьте сумму без сдачи."
         )
-
-async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    await finish_order(update, context)
 
     if query.data == "method_delivery":
         context.user_data['method'] = "Доставка"
