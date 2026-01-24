@@ -413,16 +413,10 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data == "pay_online":
-        context.user_data["payment_method"] = "Онлайн оплата"
+if query.data == "pay_now":
+    ...
 
-        await query.message.reply_text(
-            "💳 Оплатите заказ по ссылке:\n"
-            "https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1\n\n"
-            "📸 После оплаты отправьте сюда скриншот чека."
-        )
-
-    elif query.data == "pay_pickup":
+elif query.data == "pay_pickup":
     context.user_data["payment_method"] = "Оплата при получении"
     await query.message.reply_text(
         "🏪 Вы выбрали оплату при получении.\n"
@@ -430,7 +424,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await finish_order(update, context)
 
-    elif query.data == "pay_courier":
+elif query.data == "pay_courier":
     context.user_data["payment_method"] = "Оплата курьеру (наличные)"
     await query.message.reply_text(
         "💵 Оплата курьеру наличными.\n"
@@ -438,22 +432,24 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await finish_order(update, context)
 
-    if query.data == "method_delivery":
+    elif query.data == "method_delivery":
         context.user_data['method'] = "Доставка"
         context.user_data['delivery_fee'] = 400
         context.user_data['state'] = 'WAIT_ADDRESS'
         await query.edit_message_text("📍 Укажите адрес доставки:")
-    else:
+        
+    elif query.data == "method_pickup":
         context.user_data['method'] = "Самовывоз"
         context.user_data['delivery_fee'] = 0
-        context.user_data['address'] = "—"
+        context.user_data['address'] = "-"
         context.user_data['state'] = 'WAIT_DATE'
-        await query.edit_message_text("🏠 Когда планируете забрать заказ?")
+        await query.edit_message_text("🕒 Когда планируете забрать заказ?")
+
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     d = context.user_data
 
-    total_items = d['price'] * d['qty']
+    total_items = d.get('price', 0) * d.get('qty', 0)
     total_final = total_items + d.get('delivery_fee', 0)
 
     summary = (
