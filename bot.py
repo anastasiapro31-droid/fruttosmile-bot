@@ -448,25 +448,25 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
  
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     d = context.user_data
- 
+
     total_items = d.get('price', 0) * d.get('qty', 0)
     total_final = total_items + d.get('delivery_fee', 0)
- 
+
     summary = (
-        f"🔔 НОВЫЙ ЗАКАЗ!\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"📦 Товар: {d.get('product')}\n"
-        f"🔢 Кол-во: {d.get('qty')}\n"
-        f"💰 ИТОГО: {total_final} ₽\n"
-        f"👤 Клиент: {d.get('name')}\n"
-        f"📞 Тел: {d.get('phone')}\n"
-        f"🚛 Способ: {d.get('method')}\n"
-        f"🏠 Адрес: {d.get('address')}\n"
-        f"⏰ Время: {d.get('delivery_time')}\n"
-        f"💬 Комментарий: {d.get('comment')}\n"
+        f"🔔 НОВЫЙ ЗАКАЗ!\n" +
+        f"━━━━━━━━━━━━━━━\n" +
+        f"📦 Товар: {d.get('product')}\n" +
+        f"🔢 Кол-во: {d.get('qty')}\n" +
+        f"💰 ИТОГО: {total_final} ₽\n" +
+        f"👤 Клиент: {d.get('name')}\n" +
+        f"📞 Тел: {d.get('phone')}\n" +
+        f"🚛 Способ: {d.get('method')}\n" +
+        f"🏠 Адрес: {d.get('address')}\n" +
+        f"⏰ Время: {d.get('delivery_time')}\n" +
+        f"💬 Комментарий: {d.get('comment')}\n" +
         f"━━━━━━━━━━━━━━━"
     )
- 
+
     try:
         await context.bot.send_photo(
             chat_id=ADMIN_CHAT_ID,
@@ -478,7 +478,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=ADMIN_CHAT_ID,
             text=summary
         )
- 
+
     if sheet:
         try:
             sheet.append_row([
@@ -494,20 +494,31 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
         except Exception as e:
             logging.error(e)
- 
-    payment_text = (
-        f"✅ **Заказ оформлен!**\n\n"
-        f"💵 **Итоговая сумма: {total_final} ₽**\n"
-        f"({total_items} ₽ за товар + {d['delivery_fee']} ₽ доставка)\n\n"
-        f"**Оплата:**\n"
-        f"• Оплатите по [ссылке на QR]"
-        f"(https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1)\n\n"
-        f"📸 После оплаты отправьте сюда скриншот чека."
-    )
- 
+
+    payment_method = context.user_data.get("payment_method", "")  # Получаем метод оплаты
+
+    if payment_method == "Оплата курьеру (наличные)":
+        payment_text = (
+            f"✅ **Заказ оформлен!**\n\n" +
+            f"💵 **Итоговая сумма: {total_final} ₽**\n" +
+            f"({total_items} ₽ за товар + {d['delivery_fee']} ₽ доставка)\n\n" +
+            f"Пожалуйста, подготовьте наличные без сдачи для курьера."
+        )
+    else:
+        # Для онлайн-оплаты или других — с QR
+        payment_text = (
+            f"✅ **Заказ оформлен!**\n\n" +
+            f"💵 **Итоговая сумма: {total_final} ₽**\n" +
+            f"({total_items} ₽ за товар + {d['delivery_fee']} ₽ доставка)\n\n" +
+            f"**Оплата:**\n" +
+            f"• Оплатите по [ссылке на QR]" +
+            f"(https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1)\n\n" +
+            f"📸 После оплаты отправьте сюда скриншот чека."
+        )
+
     msg = update.callback_query.message if update.callback_query else update.message
     await msg.reply_text(payment_text, parse_mode="Markdown")
- 
+
     context.user_data['state'] = None
  
 async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
