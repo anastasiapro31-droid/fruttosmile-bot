@@ -362,38 +362,81 @@ async def show_order_preview(update, context):
 
     total = d['price'] * d['qty'] + d.get('delivery_fee', 0)
 
-async def show_order_preview(update, context):
-    d = context.user_data
-
-    total = d['price'] * d['qty'] + d.get('delivery_fee', 0)
-
     text_order = (
         "📋 **Проверьте ваш заказ:**\n\n"
         f"📦 Товар: {d.get('product')}\n"
         f"🔢 Кол-во: {d.get('qty')}\n"
         f"💰 Сумма: {total} ₽\n"
-        f"🚛 Способ: {d.get('method')}\n"
+        f"🚛 Способ получения: {d.get('method')}\n"
         f"🏠 Адрес: {d.get('address')}\n"
         f"⏰ Время: {d.get('delivery_time')}\n"
         f"💬 Комментарий: {d.get('comment') or '—'}"
     )
 
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ Подтвердить заказ", callback_data="confirm_order")],
         [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")],
         [InlineKeyboardButton("📞 Связь с магазином", url="https://t.me/fruttosmile")]
     ])
 
-    if update.message:
-    msg = update.message
-    else:
-    msg = update.callback_query.message
+    msg = update.message or update.callback_query.message
 
-await msg.reply_text(
+    await msg.reply_text(
         text_order,
         reply_markup=kb,
         parse_mode="Markdown"
     )
+
+
+async def show_payment_options(update, context):
+    method = context.user_data.get("method")
+
+    if method == "Самовывоз":
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💳 Оплатить сейчас", callback_data="pay_online")],
+            [InlineKeyboardButton("🏪 Оплатить при получении", callback_data="pay_pickup")]
+        ])
+    else:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💳 Оплатить сейчас", callback_data="pay_online")],
+            [InlineKeyboardButton("💵 Оплатить курьеру (наличные)", callback_data="pay_courier")]
+        ])
+
+    msg = update.message or update.callback_query.message
+
+    await msg.reply_text(
+        "💳 Выберите способ оплаты:",
+        reply_markup=kb
+    )
+
+
+async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "pay_online":
+        context.user_data["payment_method"] = "Онлайн оплата"
+
+        await query.message.reply_text(
+            "💳 Оплатите заказ по ссылке:\n"
+            "https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1\n\n"
+            "📸 После оплаты отправьте сюда скриншот чека."
+        )
+
+    elif query.data == "pay_pickup":
+        context.user_data["payment_method"] = "Оплата при получении"
+
+        await query.message.reply_text(
+            "🏪 Вы выбрали оплату при получении.\n"
+            "Менеджер свяжется с вами для подтверждения заказа."
+        )
+
+    elif query.data == "pay_courier":
+        context.user_data["payment_method"] = "Оплата курьеру (наличные)"
+
+        await query.message.reply_text(
+            "💵 Оплата курьеру наличными.\n"
+            "Пожалуйста, подготовьте сумму без сдачи."
+        )
 
 async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
