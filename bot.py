@@ -373,11 +373,11 @@ async def show_order_preview(update, context):
         f"💬 Комментарий: {d.get('comment') or '—'}"
     )
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")],
-        [InlineKeyboardButton("📞 Связь с магазином", url="https://t.me/fruttosmile")]
-    ])
-
+     kb = InlineKeyboardMarkup([
+       [InlineKeyboardButton("✅ Подтвердить заказ", callback_data="confirm_order")],
+       [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")],
+       [InlineKeyboardButton("📞 Связь с магазином", url="https://t.me/fruttosmile")]
+])
     msg = update.message or update.callback_query.message
 
     await msg.reply_text(
