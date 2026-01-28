@@ -360,17 +360,18 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['state'] = 'WAIT_PHONE'
         await update.message.reply_text("3️⃣ Ваш номер телефона:")
         
-    elif state == "WAIT_PHONE":
+    elif state == 'WAIT_PHONE':
         keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("📱 Поделиться номером телефона", request_contact=True)]],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
-    await update.message.reply_text(
-        "📞 Пожалуйста, поделитесь номером телефона:",
-        reply_markup=keyboard
-    )
+            [[KeyboardButton("📱 Поделиться номером телефона", request_contact=True)]],
+            resize_keyboard=True,
+            one_time_keyboard=True
+        )
+        await update.message.reply_text(
+            "📍 Пожалуйста, поделитесь номером телефона:",
+            reply_markup=keyboard
+        )
+        context.user_data['state'] = 'WAIT_ADDRESS'  # Добавьте это, чтобы бот знал, что ждать дальше
+        return # Важно! Чтобы прервать выполнение функции здесь
         
     elif state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
