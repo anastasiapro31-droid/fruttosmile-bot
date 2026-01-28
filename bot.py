@@ -6,6 +6,7 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 
 # ================= НАСТРОЙКИ =================
@@ -305,6 +306,31 @@ async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
  
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get('state')
+   
+    if update.message.contact:
+        contact = update.message.contact
+
+        context. user_data["phone"] = contact.phone_number
+        context.user_data["first_name"] = contact.first_name
+        context.user_data["last_name"] = contact.last_name
+
+        context.user_data["state"] = "WAIT_METHOD"
+
+        await update.message.reply_text(
+        "Спасибо 💖 Номер получен!",
+        reply_markup=ReplyKeyboardMarkup([[]], remove_keyboard=True)
+    )
+
+        kb = [
+        [InlineKeyboardButton("🚚 Доставка (платно)", callback_data="method_delivery")],
+        [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]
+    ]
+
+       await update.message.reply_text(
+        "Выберите способ получения:",
+        reply_markup=InlineKeyboardMarkup(kb)
+    )
+        return
     
     # ПЕРЕСЫЛКА ЧЕКА ОБ ОПЛАТЕ
     if not state and (update.message.photo or update.message.document):
@@ -334,12 +360,17 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['state'] = 'WAIT_PHONE'
         await update.message.reply_text("3️⃣ Ваш номер телефона:")
         
-    elif state == 'WAIT_PHONE':
-        context.user_data['phone'] = text
-        context.user_data['state'] = 'WAIT_METHOD'
-        kb = [[InlineKeyboardButton("🚚 Доставка (+400₽)", callback_data="method_delivery"), 
-               InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]]
-        await update.message.reply_text("4️⃣ Способ получения:", reply_markup=InlineKeyboardMarkup(kb))
+    elif state == "WAIT_PHONE":
+        keyboard = ReplyKeyboardMarkup(
+        [[KeyboardButton("📱 Поделиться номером телефона", request_contact=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
+    await update.message.reply_text(
+        "📞 Пожалуйста, поделитесь номером телефона:",
+        reply_markup=keyboard
+    )
         
     elif state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
