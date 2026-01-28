@@ -326,7 +326,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]
     ]
 
-       await update.message.reply_text(
+        await update.message.reply_text(
         "Выберите способ получения:",
         reply_markup=InlineKeyboardMarkup(kb)
     )
