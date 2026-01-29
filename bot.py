@@ -361,6 +361,16 @@ def main():
 
     app.run_polling()
 
+import signal
+import sys
+
+def shutdown(signum, frame):
+    print("Получен сигнал остановки, завершаем polling...")
+    sys.exit(0)
+
+# Ловим сигналы завершения (Render их отправляет)
+signal.signal(signal.SIGINT, shutdown)
+signal.signal(signal.SIGTERM, shutdown)
 
 if __name__ == "__main__":
     main()
