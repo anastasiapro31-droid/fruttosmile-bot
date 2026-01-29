@@ -331,40 +331,50 @@ async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['state'] = 'WAIT_QTY'
     await query.message.reply_text(f"✅ Вы выбрали: {context.user_data['product']}\n\n1️⃣ Укажите количество (цифрами):")
         
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Если телефон уже есть — сразу к меню
+    if context.user_data.get('phone'):
+        await show_main_menu(update, context)
+        return
+
+    # Если телефона нет — требуем регистрацию ПЕРВЫМ делом
+    keyboard = ReplyKeyboardMarkup(
+        [[KeyboardButton("📱 Зарегистрироваться в программе лояльности", request_contact=True)]],
+        resize_keyboard=True, one_time_keyboard=True
+    )
+    await update.message.reply_text(
+        "Добро пожаловать в Fruttosmile! 💝\n\nЧтобы сделать заказ и получить доступ к меню, пожалуйста, подтвердите ваш номер телефона:",
+        reply_markup=keyboard
+    )
+    context.user_data['state'] = 'WAIT_AUTH'
+
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get('state')
     text = update.message.text
 
-    # --- 1. ПРИЕМ КОНТАКТА (РЕГИСТРАЦИЯ) ---
+    # 1. ОБРАБОТКА КНОПКИ ТЕЛЕФОНА (Регистрация)
     if update.message.contact:
         contact = update.message.contact
         context.user_data['phone'] = contact.phone_number
-        context.user_data['name'] = contact.first_name # Имя берем из Telegram
+        context.user_data['name'] = contact.first_name # Имя берем из профиля
         
         await update.message.reply_text(
-            f"Приятно познакомиться, {contact.first_name}! Регистрация завершена. ✨",
-            reply_markup=ReplyKeyboardRemove() # Убираем кнопку телефона
+            f"Приятно познакомиться, {contact.first_name}! ✨ Теперь вам доступно наше меню.",
+            reply_markup=ReplyKeyboardRemove()
         )
-        
-        # Сбрасываем состояние и показываем меню товаров
         context.user_data['state'] = None
-        await show_main_menu(update, context)
-        return
-
-    # --- 2. ОБРАБОТКА ЧЕКОВ (если заказа нет) ---
-    if not state and (update.message.photo or update.message.document):
-        # ... ваш код пересылки чека админу ...
+        await show_main_menu(update, context) # После регистрации — сразу меню
         return
 
     if not state: return
 
-    # --- 3. ЦЕПОЧКА ЗАКАЗА (уже без вопросов об имени и телефоне) ---
+    # 2. ПРОЦЕСС ЗАКАЗА (уже без вопросов об имени)
     if state == 'WAIT_QTY':
         try:
             qty = int(re.sub(r'\D', '', text))
             context.user_data['qty'] = qty
             
-            # Сразу переходим к способу доставки, имя и телефон уже есть!
+            # ТАК КАК ИМЯ И ТЕЛЕФОН УЖЕ ЕСТЬ, СРАЗУ К ДОСТАВКЕ
             kb = [
                 [InlineKeyboardButton("🚚 Доставка", callback_data="method_delivery")],
                 [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]
@@ -372,7 +382,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Выберите способ получения:", reply_markup=InlineKeyboardMarkup(kb))
             context.user_data['state'] = 'WAIT_METHOD'
         except:
-            await update.message.reply_text("Пожалуйста, введите количество числом.")
+            await update.message.reply_text("Пожалуйста, укажите количество цифрами.")
 
     elif state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
