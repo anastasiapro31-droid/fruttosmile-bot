@@ -247,338 +247,103 @@ PRODUCTS = {
 }
 
 # ================= ЛОГИКА =================
- 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Если телефон уже сохранен в памяти бота, не мучаем пользователя
+    context.user_data.clear()  # всегда чистим при /start, чтобы не было старых данных
+
+    # Если телефон уже сохранён — сразу меню
     if context.user_data.get('phone'):
         await show_main_menu(update, context)
         return
 
-    # Если телефона нет — просим регистрацию первым делом
+    # Просим поделиться номером
     keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("📱 Зарегистрироваться и получить скидку", request_contact=True)]],
+        [[KeyboardButton("📱 Зарегистрироваться в программе лояльности", request_contact=True)]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
     await update.message.reply_text(
-        "Добро пожаловать в Fruttosmile! 💝\n\nЧтобы получить доступ к меню и зарегистрироваться в программе лояльности, пожалуйста, подтвердите ваш номер телефона:",
+        "Добро пожаловать в Fruttosmile! 💝\n\n"
+        "Чтобы сделать заказ и участвовать в программе лояльности, "
+        "подтвердите ваш номер телефона (это займёт 1 секунду):",
         reply_markup=keyboard
     )
-    context.user_data['state'] = 'WAIT_AUTH'
- 
-async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📦 Боксы", callback_data="cat_boxes")],
-        [InlineKeyboardButton("💐 Свежие букеты", callback_data="cat_fresh")],
-        [InlineKeyboardButton("🍖 Мясные букеты", callback_data="cat_meat")],
-        [InlineKeyboardButton("🍬 Сладкие букеты", callback_data="cat_sweet")],
-        [InlineKeyboardButton("📞 Связь с магазином", url="https://t.me/your_manager")]
-    ])
-    text = "Выберите категорию:"
-    
-    # Обработка как сообщения, так и нажатия кнопки "Назад"
-    if update.callback_query:
-        await update.callback_query.message.edit_text(text, reply_markup=keyboard)
-    else:
-        await update.message.reply_text(text, reply_markup=keyboard)
+    # state не нужен, т.к. контакт ловим отдельным хэндлером
 
-async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    cat = query.data.replace("cat_", "")
-    if cat in ["boxes", "sweet"]:
-        kb = [[InlineKeyboardButton("До 3000", callback_data=f"sub_{cat}_0_3000")],
-              [InlineKeyboardButton("3000-5000", callback_data=f"sub_{cat}_3000_5000")],
-              [InlineKeyboardButton("5000+", callback_data=f"sub_{cat}_5000_plus")],
-              [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
-        await query.edit_message_text("Выберите бюджет:", reply_markup=InlineKeyboardMarkup(kb))
-    else:
-        for p in PRODUCTS.get(cat, []):
-            kb = [[InlineKeyboardButton("🛍 Выбрать этот товар", callback_data=f"sel_{p['name'][:20]}")]]
-            await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(kb))
- 
-async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data.split("_")
-    # Исправлен доступ к вложенному словарю
-    category = data[1]
-    budget_key = "_".join(data[2:])
-    items = PRODUCTS.get(category, {}).get(budget_key, [])
-    
-    for p in items:
-        kb = [[InlineKeyboardButton("🛍 Выбрать этот товар", callback_data=f"sel_{p['name'][:20]}")]]
-        await query.message.reply_photo(p["photo"], caption=f"{p['name']}\nЦена: {p['price']} ₽", reply_markup=InlineKeyboardMarkup(kb))
- 
-async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    p_name = query.data.replace("sel_", "")
-    
-    # Поиск выбранного товара в базе
-    found = False
-    for cat in PRODUCTS.values():
-        items = cat if isinstance(cat, list) else [i for sub in cat.values() for i in sub]
-        for p in items:
-            if p['name'].startswith(p_name):
-                context.user_data['product'] = p['name']
-                context.user_data['price'] = int(p['price'])
-                context.user_data['product_photo'] = p['photo']
-                found = True
-                break
-        if found: break
- 
-    context.user_data['state'] = 'WAIT_QTY'
-    await query.message.reply_text(f"✅ Вы выбрали: {context.user_data['product']}\n\n1️⃣ Укажите количество (цифрами):")
-        
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Если телефон уже есть — сразу к меню
-    if context.user_data.get('phone'):
-        await show_main_menu(update, context)
-        return
 
-    # Если телефона нет — требуем регистрацию ПЕРВЫМ делом
-    keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("📱 Зарегистрироваться в программе лояльности", request_contact=True)]],
-        resize_keyboard=True, one_time_keyboard=True
-    )
-    await update.message.reply_text(
-        "Добро пожаловать в Fruttosmile! 💝\n\nЧтобы сделать заказ и получить доступ к меню, пожалуйста, подтвердите ваш номер телефона:",
-        reply_markup=keyboard
-    )
-    context.user_data['state'] = 'WAIT_AUTH'
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    contact = update.message.contact
+    if contact:
+        phone = contact.phone_number
+        name = contact.first_name or contact.last_name or "Клиент"
 
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.user_data.get('state')
-    text = update.message.text
+        context.user_data['name'] = name
+        context.user_data['phone'] = phone
 
-    # 1. ОБРАБОТКА КНОПКИ ТЕЛЕФОНА (Регистрация)
-    if update.message.contact:
-        contact = update.message.contact
-        context.user_data['phone'] = contact.phone_number
-        context.user_data['name'] = contact.first_name # Имя берем из профиля
-        
         await update.message.reply_text(
-            f"Приятно познакомиться, {contact.first_name}! ✨ Теперь вам доступно наше меню.",
+            f"Спасибо, {name}! Ваш номер {phone} сохранён ✅\n"
+            "Теперь можете выбирать товары и оформлять заказы мгновенно.",
+            reply_markup=ReplyKeyboardRemove()  # убираем кнопку с клавиатуры
+        )
+
+        await show_main_menu(update, context)
+    else:
+        await update.message.reply_text(
+            "Не удалось получить номер. Попробуйте нажать кнопку ещё раз.",
             reply_markup=ReplyKeyboardRemove()
         )
-        context.user_data['state'] = None
-        await show_main_menu(update, context) # После регистрации — сразу меню
+
+
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Если сообщение — не текст (например, стикер, голосовое и т.д.) — игнорируем
+    if not update.message.text:
         return
 
-    if not state: return
+    state = context.user_data.get('state')
+    if not state:
+        return
 
-    # 2. ПРОЦЕСС ЗАКАЗА (уже без вопросов об имени)
+    text = update.message.text
+
     if state == 'WAIT_QTY':
         try:
             qty = int(re.sub(r'\D', '', text))
+            if qty < 1:
+                raise ValueError
             context.user_data['qty'] = qty
-            
-            # ТАК КАК ИМЯ И ТЕЛЕФОН УЖЕ ЕСТЬ, СРАЗУ К ДОСТАВКЕ
-            kb = [
-                [InlineKeyboardButton("🚚 Доставка", callback_data="method_delivery")],
+
+            # Сразу к выбору способа получения (имя и телефон уже есть!)
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🚚 Доставка (+400 ₽)", callback_data="method_delivery")],
                 [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")]
-            ]
-            await update.message.reply_text("Выберите способ получения:", reply_markup=InlineKeyboardMarkup(kb))
+            ])
+            await update.message.reply_text("Выберите способ получения:", reply_markup=kb)
             context.user_data['state'] = 'WAIT_METHOD'
         except:
-            await update.message.reply_text("Пожалуйста, укажите количество цифрами.")
+            await update.message.reply_text("Пожалуйста, введите количество цифрами (минимум 1).")
 
     elif state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
         context.user_data['state'] = 'WAIT_DATE'
-        await update.message.reply_text("📅 Укажите дату и время доставки:")
+        await update.message.reply_text("📅 Укажите дату и время доставки (например: 15.02 в 14:00):")
 
     elif state == 'WAIT_DATE':
         context.user_data['delivery_time'] = text
         context.user_data['state'] = 'WAIT_COMMENT'
-        await update.message.reply_text("💬 Ваши пожелания по оформлению:")
+        await update.message.reply_text("💬 Пожелания по оформлению (открытка, упаковка и т.д.):")
 
-    elif state == "WAIT_COMMENT":
+    elif state == 'WAIT_COMMENT':
         context.user_data['comment'] = text
-        context.user_data['state'] = "WAIT_CONFIRM"
+        context.user_data['state'] = 'WAIT_CONFIRM'
         await show_order_preview(update, context)
- 
-async def show_order_preview(update, context):
-    d = context.user_data
- 
-    total = d['price'] * d['qty'] + d.get('delivery_fee', 0)
- 
-    text_order = (
-        "📋 **Проверьте ваш заказ:**\n\n"
-        f"📦 Товар: {d.get('product')}\n"
-        f"🔢 Кол-во: {d.get('qty')}\n"
-        f"💰 Сумма: {total} ₽\n"
-        f"🚛 Способ получения: {d.get('method')}\n"
-        f"🏠 Адрес: {d.get('address')}\n"
-        f"⏰ Время: {d.get('delivery_time')}\n"
-        f"💬 Комментарий: {d.get('comment') or '—'}"
-    )
- 
-    kb = InlineKeyboardMarkup([
-       [InlineKeyboardButton("✅ Подтвердить заказ", callback_data="confirm_order")],
-       [InlineKeyboardButton("🔄 Изменить заказ", callback_data="restart_order")],
-       [InlineKeyboardButton("📞 Связь с магазином", url="https://t.me/fruttosmile")]
-])
-    msg = update.message or update.callback_query.message
- 
-    await msg.reply_text(
-        text_order,
-        reply_markup=kb,
-        parse_mode="Markdown"
-    )
- 
-async def show_payment_options(update, context):
-    method = context.user_data.get("method")
- 
-    if method == "Самовывоз":
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 Оплатить сейчас", callback_data="pay_online")],
-            [InlineKeyboardButton("🏪 Оплатить при получении", callback_data="pay_pickup")]
-        ])
-    else:
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 Оплатить сейчас", callback_data="pay_online")],
-            [InlineKeyboardButton("💵 Оплатить курьеру (наличные)", callback_data="pay_courier")]
-        ])
- 
-    msg = update.message or update.callback_query.message
- 
-    await msg.reply_text(
-        "💳 Выберите способ оплаты:",
-        reply_markup=kb
-    )
- 
-async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
- 
-    if query.data == "pay_now":
-        ...
- 
-    elif query.data == "pay_pickup":
-        context.user_data["payment_method"] = "Оплата при получении"
-        await query.message.reply_text(
-            "🏪 Вы выбрали оплату при получении.\n"
-            "Менеджер свяжется с вами для подтверждения заказа."
-        )
-        await finish_order(update, context)
- 
-    elif query.data == "pay_courier":
-        context.user_data["payment_method"] = "Оплата курьеру (наличные)"
-        await query.message.reply_text(
-            "💵 Оплата курьеру наличными.\n"
-            "Пожалуйста, подготовьте сумму без сдачи."
-        )
-        await finish_order(update, context)
 
-async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data == "method_delivery":
-        context.user_data['method'] = "Доставка"
-        context.user_data['delivery_fee'] = 400
-        context.user_data['state'] = 'WAIT_ADDRESS'
-        await query.edit_message_text("📍 Укажите адрес доставки:")
-         
-    elif query.data == "method_pickup":
-        context.user_data['method'] = "Самовывоз"
-        context.user_data['delivery_fee'] = 0
-        context.user_data['address'] = "-"
-        context.user_data['state'] = 'WAIT_DATE'
-        await query.edit_message_text("🕒 Когда планируете забрать заказ?")
- 
-async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    d = context.user_data
 
-    total_items = d.get('price', 0) * d.get('qty', 0)
-    total_final = total_items + d.get('delivery_fee', 0)
+# В main() замени/добавь хэндлеры так:
 
-    summary = (
-        f"🔔 НОВЫЙ ЗАКАЗ!\n" +
-        f"━━━━━━━━━━━━━━━\n" +
-        f"📦 Товар: {d.get('product')}\n" +
-        f"🔢 Кол-во: {d.get('qty')}\n" +
-        f"💰 ИТОГО: {total_final} ₽\n" +
-        f"👤 Клиент: {d.get('name')}\n" +
-        f"📞 Тел: {d.get('phone')}\n" +
-        f"🚛 Способ: {d.get('method')}\n" +
-        f"🏠 Адрес: {d.get('address')}\n" +
-        f"⏰ Время: {d.get('delivery_time')}\n" +
-        f"💬 Комментарий: {d.get('comment')}\n" +
-        f"━━━━━━━━━━━━━━━"
-    )
-
-    try:
-        await context.bot.send_photo(
-            chat_id=ADMIN_CHAT_ID,
-            photo=d.get('product_photo'),
-            caption=summary
-        )
-    except:
-        await context.bot.send_message(
-            chat_id=ADMIN_CHAT_ID,
-            text=summary
-        )
-
-    if sheet:
-        try:
-            sheet.append_row([
-                datetime.now().strftime("%d.%m.%Y %H:%M"),
-                d.get('product'),
-                d.get('qty'),
-                d.get('name'),
-                d.get('phone'),
-                d.get('method'),
-                d.get('address'),
-                d.get('delivery_time'),
-                d.get('comment')
-            ])
-        except Exception as e:
-            logging.error(e)
-
-    payment_method = context.user_data.get("payment_method", "")  # Получаем метод оплаты
-
-    if payment_method == "Оплата курьеру (наличные)":
-        payment_text = (
-            f"✅ **Заказ оформлен!**\n\n" +
-            f"💵 **Итоговая сумма: {total_final} ₽**\n" +
-            f"({total_items} ₽ за товар + {d['delivery_fee']} ₽ доставка)\n\n" +
-            f"Пожалуйста, подготовьте наличные без сдачи для курьера."
-        )
-    else:
-        # Для онлайн-оплаты или других — с QR
-        payment_text = (
-            f"✅ **Заказ оформлен!**\n\n" +
-            f"💵 **Итоговая сумма: {total_final} ₽**\n" +
-            f"({total_items} ₽ за товар + {d['delivery_fee']} ₽ доставка)\n\n" +
-            f"**Оплата:**\n" +
-            f"• Оплатите по [ссылке на QR]" +
-            f"(https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1)\n\n" +
-            f"📸 После оплаты отправьте сюда скриншот чека."
-        )
-
-    msg = update.callback_query.message if update.callback_query else update.message
-    await msg.reply_text(payment_text, parse_mode="Markdown")
-
-    context.user_data['state'] = None
- 
-async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
- 
-    if query.data == "confirm_order":
-        await show_payment_options(update, context)
- 
-    elif query.data == "restart_order":
-        context.user_data.clear()
-        await query.message.reply_text("🔄 Заказ сброшен. Начнём заново.")
-        await start(update, context)
- 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
- 
+
+    # Основные обработчики
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(start, pattern="^back$"))
     app.add_handler(CallbackQueryHandler(cat_handler, pattern="^cat_"))
@@ -587,10 +352,15 @@ def main():
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
     app.add_handler(CallbackQueryHandler(payment_handler, pattern="^pay_"))
     app.add_handler(CallbackQueryHandler(confirm_handler, pattern="^(confirm_order|restart_order)$"))
- 
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, text_handler))
- 
+
+    # Важно: отдельный хэндлер для контакта — выше всех текстовых
+    app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
+
+    # Текстовые сообщения (заказ) — после контакта
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
+
     app.run_polling()
- 
+
+
 if __name__ == "__main__":
     main()
