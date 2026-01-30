@@ -1,7 +1,8 @@
 import re
 import logging
 from datetime import datetime
-import signal
+import os          # ← добавь
+import signal      # ← добавь
 import sys
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
