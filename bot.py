@@ -16,7 +16,7 @@ from telegram.ext import (
 )
 
 # ================= НАСТРОЙКИ =================
-BOT_TOKEN = "8539880271:AAH9lzZw5XvDmnvGI1T460up-ZJ3_SxPB1s"
+BOT_TOKEN = "8539880271:AAH1Dc_K378k11osJYw12oVbMqBj_IFH_N8"
 ADMIN_CHAT_ID = 1165444045 
 SPREADSHEET_NAME = "Заказы Fruttosmile"
 SHEET_NAME = "Лист1"
