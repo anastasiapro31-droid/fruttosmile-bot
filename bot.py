@@ -585,37 +585,32 @@ async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    # Получаем индекс товара и категорию
+    # Извлекаем индекс товара
     idx = int(query.data.replace("sel_", ""))
     cat = context.user_data.get('current_cat')
     
-    # Ищем товар в списке PRODUCTS
-    # (Обработка логики для вложенных словарей или прямых списков)
+    # Достаем товар из словаря PRODUCTS
     data = PRODUCTS.get(cat)
     if isinstance(data, dict):
-        # Если были в подкатегории цен, нужно понять в какой. 
-        # Для простоты можно хранить список отфильтрованных товаров в context.user_data
-        # Но пока возьмем базовый поиск:
-        products = []
-        for sub in data.values():
-            products.extend(sub)
+        # Если были в подкатегории цен, собираем все товары категории для поиска
+        all_products = []
+        for sublist in data.values():
+            all_products.extend(sublist)
+        product = all_products[idx]
     else:
-        products = data
+        product = data[idx]
 
-    product = products[idx]
-
-    # Сохраняем данные о выборе в память бота
+    # Сохраняем в память для оформления заказа
     context.user_data.update({
         'product': product['name'],
         'price': int(product['price']),
-        'product_photo': product.get('photo', ''), # Если есть фото
-        'state': 'WAIT_QTY' # Переключаем бота в режим ожидания цифр
+        'state': 'WAIT_QTY'
     })
 
     await query.message.reply_text(
-        f"✅ Вы выбрали: {product['name']}\n"
+        f"🍓 Вы выбрали: {product['name']}\n"
         f"💰 Цена: {product['price']}₽\n\n"
-        "Введите количество (только цифры, например: 1):"
+        "Сколько штук хотите заказать? Пришлите цифру:"
     )
 
 
