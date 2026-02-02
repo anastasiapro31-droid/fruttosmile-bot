@@ -1,10 +1,12 @@
 import re
 import logging
-from datetime import datetime
-import os          # ← добавь
-import signal      # ← добавь
+import os
+import signal
 import sys
+import json  # Добавь: нужен для обработки GOOGLE_KEY_JSON
+from datetime import datetime
 
+# Библиотеки для работы с Telegram
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     ApplicationBuilder,
@@ -14,6 +16,11 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
+
+# Библиотеки для Google Таблиц (без них код упадет на этапе авторизации)
+import gspread 
+from google.oauth2.service_account import Credentials
+
 
 # ================= НАСТРОЙКИ =================
 BOT_TOKEN = "8539880271:AAH1Dc_K378k11osJYw12oVbMqBj_IFH_N8"
@@ -367,7 +374,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ──── Остальные функции (без изменений) ────
 async def show_order_preview(update, context):
     d = context.user_data
-    total = d['price'] * d['qty'] + d.get('delivery_fee', 0)
+    total = int(d['price']) * int(d['qty']) + d.get('delivery_fee', 0)
 
     text_order = (
         "📋 **Проверьте ваш заказ:**\n\n"
