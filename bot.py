@@ -546,19 +546,77 @@ async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     category = query.data.replace("cat_", "")
     context.user_data['current_cat'] = category
+
+    data = PRODUCTS.get(category)
     
-    # Показываем сообщение, что категория выбрана
-    await query.edit_message_text(f"Вы выбрали категорию: {category}. Скоро здесь будет список товаров!")
+    # Если в категории есть подкатегории по ценам (как в boxes или sweet)
+    if isinstance(data, dict):
+        keyboard = [
+            [InlineKeyboardButton("До 3000 ₽", callback_data=f"sub_{category}_0_3000")],
+            [InlineKeyboardButton("3000 — 5000 ₽", callback_data=f"sub_{category}_3000_5000")],
+            [InlineKeyboardButton("От 5000 ₽", callback_data=f"sub_{category}_5000_plus")],
+            [InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")]
+        ]
+        await query.edit_message_text("Выберите ценовой диапазон:", reply_markup=InlineKeyboardMarkup(keyboard))
+    
+    # Если это прямой список (как в flowers или meat)
+    else:
+        await show_products_list(query, data)
+
+async def show_products_list(query, products):
+    keyboard = []
+    for i, p in enumerate(products):
+        # Создаем кнопку для каждого товара из твоего списка PRODUCTS
+        keyboard.append([InlineKeyboardButton(f"{p['name']} — {p['price']}₽", callback_data=f"sel_{i}")])
+    
+    keyboard.append([InlineKeyboardButton("⬅️ Назад в меню", callback_data="main_menu")])
+    await query.edit_message_text("Выберите товар:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("Загружаю подкатегории...")
+    
+    # Разбираем данные из кнопки (например, sub_boxes_0_3000)
+    _, cat, sub = query.data.split('_', 2)
+    products = PRODUCTS[cat][sub]
+    await show_products_list(query, products)
 
 async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("Товар выбран!")
+    
+    # Получаем индекс товара и категорию
+    idx = int(query.data.replace("sel_", ""))
+    cat = context.user_data.get('current_cat')
+    
+    # Ищем товар в списке PRODUCTS
+    # (Обработка логики для вложенных словарей или прямых списков)
+    data = PRODUCTS.get(cat)
+    if isinstance(data, dict):
+        # Если были в подкатегории цен, нужно понять в какой. 
+        # Для простоты можно хранить список отфильтрованных товаров в context.user_data
+        # Но пока возьмем базовый поиск:
+        products = []
+        for sub in data.values():
+            products.extend(sub)
+    else:
+        products = data
+
+    product = products[idx]
+
+    # Сохраняем данные о выборе в память бота
+    context.user_data.update({
+        'product': product['name'],
+        'price': int(product['price']),
+        'product_photo': product.get('photo', ''), # Если есть фото
+        'state': 'WAIT_QTY' # Переключаем бота в режим ожидания цифр
+    })
+
+    await query.message.reply_text(
+        f"✅ Вы выбрали: {product['name']}\n"
+        f"💰 Цена: {product['price']}₽\n\n"
+        "Введите количество (только цифры, например: 1):"
+    )
 
 
 # ==================== GRACEFUL SHUTDOWN ДЛЯ RENDER ====================
