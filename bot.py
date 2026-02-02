@@ -552,9 +552,9 @@ def main():
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
 
     # Пока закомментированы проблемные категории
-    # app.add_handler(CallbackQueryHandler(cat_handler, pattern="^cat_"))
-    # app.add_handler(CallbackQueryHandler(subcat_handler, pattern="^sub_"))
-    # app.add_handler(CallbackQueryHandler(product_selected, pattern="^sel_"))
+    app.add_handler(CallbackQueryHandler(cat_handler, pattern="^cat_"))
+    app.add_handler(CallbackQueryHandler(subcat_handler, pattern="^sub_"))
+    app.add_handler(CallbackQueryHandler(product_selected, pattern="^sel_"))
 
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
     app.add_handler(CallbackQueryHandler(payment_handler, pattern="^pay_"))
