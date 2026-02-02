@@ -564,13 +564,33 @@ async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_products_list(query, data)
 
 async def show_products_list(query, products):
-    keyboard = []
-    for i, p in enumerate(products):
-        # Создаем кнопку для каждого товара из твоего списка PRODUCTS
-        keyboard.append([InlineKeyboardButton(f"{p['name']} — {p['price']}₽", callback_data=f"sel_{i}")])
+    # Сначала удалим старое текстовое сообщение, чтобы не засорять чат
+    await query.message.delete()
     
-    keyboard.append([InlineKeyboardButton("⬅️ Назад в меню", callback_data="main_menu")])
-    await query.edit_message_text("Выберите товар:", reply_markup=InlineKeyboardMarkup(keyboard))
+    for i, p in enumerate(products):
+        caption = f"<b>{p['name']}</b>\n\n💰 Цена: {p['price']}₽"
+        keyboard = [[InlineKeyboardButton(f"🛍 Купить {p['name']}", callback_data=f"sel_{i}")]]
+        
+        # Если в словаре есть ссылка на фото, отправляем его
+        if p.get('photo'):
+            try:
+                await query.message.chat.send_photo(
+                    photo=p['photo'],
+                    caption=caption,
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            except Exception as e:
+                # Если фото не загрузилось, отправим хотя бы текст
+                await query.message.chat.send_message(f"⚠️ Ошибка фото: {caption}", reply_markup=InlineKeyboardMarkup(keyboard))
+        else:
+            # Если фото вообще нет в базе
+            await query.message.chat.send_message(caption, reply_markup=InlineKeyboardMarkup(keyboard))
+
+    # В конце добавим кнопку возврата в меню отдельным сообщением
+    back_kb = [[InlineKeyboardButton("⬅️ Назад в меню", callback_data="main_menu")]]
+    await query.message.chat.send_message("Выберите понравившийся товар выше 👆", reply_markup=InlineKeyboardMarkup(back_kb))
+
 
 async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
