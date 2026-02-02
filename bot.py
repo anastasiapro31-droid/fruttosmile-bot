@@ -540,6 +540,25 @@ async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         await query.message.reply_text("🔄 Заказ сброшен. Начнём заново.")
         await start(update, context)
+        
+async def cat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    category = query.data.replace("cat_", "")
+    context.user_data['current_cat'] = category
+    
+    # Показываем сообщение, что категория выбрана
+    await query.edit_message_text(f"Вы выбрали категорию: {category}. Скоро здесь будет список товаров!")
+
+async def subcat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("Загружаю подкатегории...")
+
+async def product_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("Товар выбран!")
 
 
 # ==================== GRACEFUL SHUTDOWN ДЛЯ RENDER ====================
