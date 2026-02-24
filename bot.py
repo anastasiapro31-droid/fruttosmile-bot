@@ -76,36 +76,37 @@ def normalize_phone(phone: str) -> str:
 # ================= СОЗДАНИЕ КЛИЕНТА В RETAILCRM =================
 def create_customer_if_not_exists(name: str, phone: str):
     if not RETAILCRM_URL or not RETAILCRM_API_KEY:
-        logging.warning("RetailCRM URL или API-ключ не указаны — пропускаем создание клиента")
+        logging.warning("RetailCRM URL или API-ключ не указаны")
         return
 
     normalized = normalize_phone(phone)
+    phone_no_plus = normalized.replace("+", "")
 
     headers = {
         "X-API-KEY": RETAILCRM_API_KEY
     }
 
     try:
-        # 1️⃣ Проверяем есть ли клиент
+        # Проверяем по номеру БЕЗ +
         response = requests.get(
             f"{RETAILCRM_URL}/api/v5/customers",
             headers=headers,
-            params={"filter[phone]": normalized},
+            params={"filter[phone]": phone_no_plus},
             timeout=10
         )
 
         data = response.json()
 
         if response.status_code == 200 and data.get("customers"):
-            logging.info(f"Клиент {normalized} уже существует в RetailCRM")
+            logging.info(f"Клиент {phone_no_plus} уже существует")
             return
 
-        # 2️⃣ Если нет — создаём
+        # Создаём клиента
         payload = {
             "customer": {
                 "firstName": name or "Клиент",
                 "phones": [
-                    {"number": normalized}
+                    {"number": phone_no_plus}
                 ]
             }
         }
@@ -118,9 +119,9 @@ def create_customer_if_not_exists(name: str, phone: str):
         )
 
         if create_response.status_code in (200, 201):
-            logging.info(f"Клиент {name} ({normalized}) успешно создан в RetailCRM")
+            logging.info(f"Клиент {name} ({phone_no_plus}) создан")
         else:
-            logging.error(f"Ошибка создания клиента в RetailCRM: {create_response.text}")
+            logging.error(f"Ошибка создания: {create_response.text}")
 
     except Exception as e:
         logging.error(f"Ошибка связи с RetailCRM: {e}")
