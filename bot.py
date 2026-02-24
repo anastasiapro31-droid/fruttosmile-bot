@@ -192,7 +192,15 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = "Выберите товар:"
 
     if update.callback_query:
-        await update.callback_query.message.edit_text(text, reply_markup=keyboard)
+        try:
+            await update.callback_query.message.delete()
+        except:
+            pass
+
+        await update.callback_query.message.chat.send_message(
+            text,
+            reply_markup=keyboard
+        )
     else:
         await update.message.reply_text(text, reply_markup=keyboard)
 
@@ -230,7 +238,6 @@ async def show_step(query, context, product):
     for opt in step["options"]:
         buttons.append([InlineKeyboardButton(opt["label"], callback_data=f"opt_{opt['id']}")])
 
-    # Умная кнопка "Назад"
     if step_index > 0:
         buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="step_back")])
     else:
@@ -456,7 +463,12 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
             [InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")]
         ])
 
-        await query.edit_message_text("Выберите район доставки:", reply_markup=kb)
+        try:
+            await query.message.delete()
+        except:
+            pass
+
+        await query.message.chat.send_message("Выберите район доставки:", reply_markup=kb)
 
     elif query.data == "method_pickup":
         context.user_data['method'] = "Самовывоз"
@@ -465,9 +477,15 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data['delivery_time'] = "По договоренности"
         context.user_data['state'] = 'WAIT_COMMENT'
 
+        try:
+            await query.message.delete()
+        except:
+            pass
+
         await query.edit_message_text(
             "💬 Напишите пожелания к заказу\n"
-            "(номер получателя, надпись на открытке, особые просьбы и т.д.):"
+            "(номер получателя, надпись на открытке, особые просьбы и т.д.)\n"
+            "Или напишите 'Нет':"
         )
 
 async def district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -479,7 +497,11 @@ async def district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📞 Связь с менеджером", url="https://t.me/fruttosmile")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_method")]
         ])
-        await query.edit_message_text(
+        try:
+            await query.message.delete()
+        except:
+            pass
+        await query.message.chat.send_message(
             "Менеджер рассчитает стоимость доставки индивидуально:",
             reply_markup=kb
         )
@@ -510,13 +532,24 @@ async def district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("⬅️ Выбрать другой район", callback_data="back_to_district")]
     ])
 
-    await query.edit_message_text(text, reply_markup=kb, parse_mode="Markdown")
+    try:
+        await query.message.delete()
+    except:
+        pass
+
+    await query.message.chat.send_message(text, reply_markup=kb, parse_mode="Markdown")
 
 async def confirm_district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     context.user_data['state'] = 'WAIT_ADDRESS'
-    await query.edit_message_text("📍 Введите полный адрес доставки (улица, дом, квартира):")
+
+    try:
+        await query.message.delete()
+    except:
+        pass
+
+    await query.message.chat.send_message("📍 Введите полный адрес доставки (улица, дом, квартира):")
 
 async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -541,7 +574,11 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if order_date == date.today():
             current_hour = datetime.now().hour
             if current_hour >= start_hour:
-                await query.edit_message_text(
+                try:
+                    await query.message.delete()
+                except:
+                    pass
+                await query.message.chat.send_message(
                     "⛔ Этот интервал уже недоступен.\nВыберите более позднее время."
                 )
                 return
@@ -549,10 +586,14 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['delivery_time'] = selected_time
     context.user_data['state'] = 'WAIT_COMMENT'
 
+    try:
+        await query.message.delete()
+    except:
+        pass
+
     await query.edit_message_text(
         "💬 Напишите пожелания к заказу\n"
-        "(номер получателя, надпись на открытке, особые просьбы и т.д.)\n"
-        "Или напишите 'Нет':"
+        "(номер получателя, надпись на открытке, особые просьбы и т.д.):"
     )
 
 async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -566,7 +607,11 @@ async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")]
             ])
-            await query.edit_message_text("Выберите способ получения:", reply_markup=kb)
+            try:
+                await query.message.delete()
+            except:
+                pass
+            await query.message.chat.send_message("Выберите способ получения:", reply_markup=kb)
             context.user_data['state'] = 'WAIT_METHOD'
 
         elif query.data == "back_to_district":
@@ -578,16 +623,28 @@ async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("Индивидуальный тариф", callback_data="district_custom")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_method")]
             ])
-            await query.edit_message_text("Выберите район доставки:", reply_markup=kb)
+            try:
+                await query.message.delete()
+            except:
+                pass
+            await query.message.chat.send_message("Выберите район доставки:", reply_markup=kb)
             context.user_data['state'] = 'WAIT_DISTRICT'
 
         elif query.data == "back_to_address":
             context.user_data['state'] = 'WAIT_ADDRESS'
-            await query.edit_message_text("📍 Введите полный адрес доставки:")
+            try:
+                await query.message.delete()
+            except:
+                pass
+            await query.message.chat.send_message("📍 Введите полный адрес доставки:")
 
         elif query.data == "back_to_date":
             context.user_data['state'] = 'WAIT_DATE'
-            await query.edit_message_text("📅 Укажите дату доставки в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
+            try:
+                await query.message.delete()
+            except:
+                pass
+            await query.message.chat.send_message("📅 Укажите дату доставки в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
 
     elif query.data == "main_menu":
         name = context.user_data.get("name")
@@ -609,6 +666,10 @@ async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             product_key = context.user_data.get("product_key")
             product = PRODUCTS.get(product_key)
             if product:
+                try:
+                    await query.message.delete()
+                except:
+                    pass
                 await show_step(query, context, product)
         else:
             await show_main_menu(update, context)
@@ -896,7 +957,7 @@ def main():
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
     app.add_handler(CallbackQueryHandler(district_handler, pattern="^district_"))
     app.add_handler(CallbackQueryHandler(time_handler, pattern="^time_"))
-    app.add_handler(CallbackQueryHandler(back_handler, pattern="^(back_.*|main_menu|step_back)$"))  # ← исправлено!
+    app.add_handler(CallbackQueryHandler(back_handler, pattern="^(back_.*|main_menu|step_back)$"))
 
     app.add_handler(CallbackQueryHandler(payment_handler, pattern="^pay_"))
 
