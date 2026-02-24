@@ -212,14 +212,13 @@ async def product_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data.clear()
 
-    if name:
-        context.user_data["name"] = name
-    if phone:
-        context.user_data["phone"] = phone
-
-    context.user_data["product_key"] = product_key
-    context.user_data["product_photo"] = product["photo"]
-    context.user_data["step_index"] = 0
+    context.user_data.update({
+        "name": name if name else None,
+        "phone": phone if phone else None,
+        "product_key": product_key,
+        "product_photo": product["photo"],
+        "step_index": 0
+    })
 
     await show_step(query, context, product)
 
@@ -231,7 +230,11 @@ async def show_step(query, context, product):
     for opt in step["options"]:
         buttons.append([InlineKeyboardButton(opt["label"], callback_data=f"opt_{opt['id']}")])
 
-    buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")])
+    # Умная кнопка "Назад"
+    if step_index > 0:
+        buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="step_back")])
+    else:
+        buttons.append([InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")])
 
     try:
         await query.message.delete()
@@ -302,24 +305,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = update.message.text.strip()
 
-    if state == 'WAIT_QTY':
-        try:
-            qty = int(re.sub(r'\D', '', text))
-            if qty < 1:
-                raise ValueError
-            context.user_data['qty'] = qty
-
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🚚 Доставка", callback_data="method_delivery")],
-                [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")],
-                [InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")]
-            ])
-            await update.message.reply_text("Выберите способ получения:", reply_markup=kb)
-            context.user_data['state'] = 'WAIT_METHOD'
-        except:
-            await update.message.reply_text("Пожалуйста, укажите количество цифрами (минимум 1).")
-
-    elif state == 'WAIT_ADDRESS':
+    if state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
         context.user_data['state'] = 'WAIT_DATE'
         await update.message.reply_text("📅 Укажите дату доставки в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
@@ -481,8 +467,7 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
 
         await query.edit_message_text(
             "💬 Напишите пожелания к заказу\n"
-            "(номер получателя, надпись на открытке, особые просьбы и т.д.)\n"
-            "Или напишите 'Нет':"
+            "(номер получателя, надпись на открытке, особые просьбы и т.д.):"
         )
 
 async def district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -566,7 +551,8 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text(
         "💬 Напишите пожелания к заказу\n"
-        "(номер получателя, надпись на открытке, особые просьбы и т.д.):"
+        "(номер получателя, надпись на открытке, особые просьбы и т.д.)\n"
+        "Или напишите 'Нет':"
     )
 
 async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -574,7 +560,6 @@ async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data.startswith("back_"):
-        # Обработка всех back_*
         if query.data == "back_to_method":
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🚚 Доставка", callback_data="method_delivery")],
@@ -616,6 +601,17 @@ async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["phone"] = phone
 
         await show_main_menu(update, context)
+
+    elif query.data == "step_back":
+        current_step = context.user_data.get("step_index", 0)
+        if current_step > 0:
+            context.user_data["step_index"] = current_step - 1
+            product_key = context.user_data.get("product_key")
+            product = PRODUCTS.get(product_key)
+            if product:
+                await show_step(query, context, product)
+        else:
+            await show_main_menu(update, context)
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, status="Создан", skip_client_message=False):
     d = context.user_data
@@ -900,7 +896,7 @@ def main():
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
     app.add_handler(CallbackQueryHandler(district_handler, pattern="^district_"))
     app.add_handler(CallbackQueryHandler(time_handler, pattern="^time_"))
-    app.add_handler(CallbackQueryHandler(back_handler, pattern="^(back_|main_menu)"))  # исправленный pattern
+    app.add_handler(CallbackQueryHandler(back_handler, pattern="^(back_.*|main_menu|step_back)$"))  # ← исправлено!
 
     app.add_handler(CallbackQueryHandler(payment_handler, pattern="^pay_"))
 
