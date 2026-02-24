@@ -22,7 +22,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # ================= НАСТРОЙКИ =================
-BOT_TOKEN = "8539880271:AAH1Dc_K378k11osJYw12oVbMqBj_IFH_N8"           # ← обязательно замени
+BOT_TOKEN = "8539880271:AAEuzAdty5qxfjlwRfMZhAh6SnH6eFUq_-4"           # ← обязательно замени
 ADMIN_CHAT_ID = 1165444045                   # ← ID админа
 
 RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени на свой домен (например https://super-shop.retailcrm.ru)
