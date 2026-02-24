@@ -21,7 +21,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # ================= НАСТРОЙКИ =================
-BOT_TOKEN = "ВАШ_ТОКЕН_БОТА_СЮДА"           # ← обязательно замени
+BOT_TOKEN = "8539880271:AAH1Dc_K378k11osJYw12oVbMqBj_IFH_N8"           # ← обязательно замени
 ADMIN_CHAT_ID = 1165444045                   # ← ID админа
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
