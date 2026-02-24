@@ -21,7 +21,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # ================= НАСТРОЙКИ =================
-BOT_TOKEN = "8539880271:AAH1Dc_K378k11osJYw12oVbMqBj_IFH_N8"           # ← обязательно замени
+BOT_TOKEN = "ВАШ_ТОКЕН_БОТА_СЮДА"           # ← обязательно замени
 ADMIN_CHAT_ID = 1165444045                   # ← ID админа
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -60,7 +60,7 @@ async def safe_delete(message):
     except:
         pass
 
-# ================= НОВЫЙ КАТАЛОГ ТОВАРОВ =================
+# ================= КАТАЛОГ ТОВАРОВ =================
 PRODUCTS = {
     "choco": {
         "name": "🍓 Клубника в шоколаде",
@@ -69,8 +69,8 @@ PRODUCTS = {
             {
                 "title": "Выберите размер:",
                 "options": [
-                    {"id": "4", "label": "4 ягоды — 890₽", "price": 890},
-                    {"id": "9", "label": "9 ягод — 1990₽", "price": 1990},
+                    {"id": "4",  "label": "4 ягоды — 890₽",  "price": 890},
+                    {"id": "9",  "label": "9 ягод — 1990₽",  "price": 1990},
                     {"id": "12", "label": "12 ягод — 2590₽", "price": 2590},
                     {"id": "15", "label": "15 ягод — 3190₽", "price": 3190},
                     {"id": "16", "label": "16 ягод — 3390₽", "price": 3390},
@@ -78,12 +78,12 @@ PRODUCTS = {
                 ]
             },
             {
-                "title": "Выберите декор:",
+                "title": "Выберите декор (1–4):",
                 "options": [
-                    {"id": "simple", "label": "Простой"},
-                    {"id": "sprinkle", "label": "Посыпка"},
-                    {"id": "decor1", "label": "Декор №1"},
-                    {"id": "photo", "label": "Как на фото"},
+                    {"id": "1", "label": "1 — Простой"},
+                    {"id": "2", "label": "2 — Посыпка"},
+                    {"id": "3", "label": "3 — Декор №1"},
+                    {"id": "4", "label": "4 — Как на фото"},
                 ]
             }
         ]
@@ -102,6 +102,15 @@ PRODUCTS = {
                     {"id": "30", "label": "30–33 ягоды — 5790₽", "price": 5790},
                     {"id": "35", "label": "35–37 ягод — 6790₽", "price": 6790},
                 ]
+            },
+            {
+                "title": "Выберите декор (1–4):",
+                "options": [
+                    {"id": "1", "label": "1 — Простой"},
+                    {"id": "2", "label": "2 — Посыпка"},
+                    {"id": "3", "label": "3 — Декор №1"},
+                    {"id": "4", "label": "4 — Как на фото"},
+                ]
             }
         ]
     },
@@ -113,12 +122,19 @@ PRODUCTS = {
             {
                 "title": "Выберите размер:",
                 "options": [
-                    {"id": "mini", "label": "Мини — 2490₽", "price": 2490},
-                    {"id": "small", "label": "Малый — 2990₽", "price": 2990},
-                    {"id": "medium", "label": "Средний — 3990₽", "price": 3990},
-                    {"id": "big", "label": "Большой — 4990₽", "price": 4990},
-                    {"id": "25", "label": "25–27 ягод — 5990₽", "price": 5990},
-                    {"id": "30", "label": "30–35 ягод — 6990₽", "price": 6990},
+                    {"id": "12", "label": "12 ягод — 2490₽", "price": 2490},
+                    {"id": "16", "label": "16 ягод — 2990₽", "price": 2990},
+                    {"id": "20", "label": "20 ягод — 3990₽", "price": 3990},
+                    {"id": "25", "label": "25 ягод — 4990₽", "price": 4990},
+                ]
+            },
+            {
+                "title": "Выберите декор (1–4):",
+                "options": [
+                    {"id": "1", "label": "1 — Простой"},
+                    {"id": "2", "label": "2 — Посыпка"},
+                    {"id": "3", "label": "3 — Декор №1"},
+                    {"id": "4", "label": "4 — Как на фото"},
                 ]
             }
         ]
@@ -191,7 +207,16 @@ async def product_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Товар не найден.")
         return
 
+    name = context.user_data.get("name")
+    phone = context.user_data.get("phone")
+
     context.user_data.clear()
+
+    if name:
+        context.user_data["name"] = name
+    if phone:
+        context.user_data["phone"] = phone
+
     context.user_data["product_key"] = product_key
     context.user_data["product_photo"] = product["photo"]
     context.user_data["step_index"] = 0
@@ -241,7 +266,6 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Вариант не найден.")
         return
 
-    # Сохраняем в понятные ключи
     if step_index == 0:
         context.user_data["size"] = selected_option["label"]
     elif step_index == 1:
@@ -456,7 +480,9 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data['state'] = 'WAIT_COMMENT'
 
         await query.edit_message_text(
-            "💬 Напишите комментарий к заказу (или напишите 'Нет'):"
+            "💬 Напишите пожелания к заказу\n"
+            "(номер получателя, надпись на открытке, особые просьбы и т.д.)\n"
+            "Или напишите 'Нет':"
         )
 
 async def district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -527,10 +553,8 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if order_date_str:
         order_date = datetime.strptime(order_date_str, "%d.%m.%Y").date()
 
-        # Если доставка сегодня — проверяем время
         if order_date == date.today():
             current_hour = datetime.now().hour
-
             if current_hour >= start_hour:
                 await query.edit_message_text(
                     "⛔ Этот интервал уже недоступен.\nВыберите более позднее время."
@@ -541,44 +565,56 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['state'] = 'WAIT_COMMENT'
 
     await query.edit_message_text(
-        "💬 Напишите пожелания к заказу (надпись на открытке, особые просьбы и т.д.):"
+        "💬 Напишите пожелания к заказу\n"
+        "(номер получателя, надпись на открытке, особые просьбы и т.д.):"
     )
 
 async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data == "back_to_method":
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚚 Доставка", callback_data="method_delivery")],
-            [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")],
-            [InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")]
-        ])
-        await query.edit_message_text("Выберите способ получения:", reply_markup=kb)
-        context.user_data['state'] = 'WAIT_METHOD'
+    if query.data.startswith("back_"):
+        # Обработка всех back_*
+        if query.data == "back_to_method":
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🚚 Доставка", callback_data="method_delivery")],
+                [InlineKeyboardButton("🏠 Самовывоз", callback_data="method_pickup")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")]
+            ])
+            await query.edit_message_text("Выберите способ получения:", reply_markup=kb)
+            context.user_data['state'] = 'WAIT_METHOD'
 
-    elif query.data == "back_to_district":
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Октябрьский — 350₽", callback_data="district_350")],
-            [InlineKeyboardButton("Кировский — 400₽", callback_data="district_400")],
-            [InlineKeyboardButton("Свердловский — 450₽", callback_data="district_450")],
-            [InlineKeyboardButton("Ленинский — 550₽", callback_data="district_550")],
-            [InlineKeyboardButton("Индивидуальный тариф", callback_data="district_custom")],
-            [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_method")]
-        ])
-        await query.edit_message_text("Выберите район доставки:", reply_markup=kb)
-        context.user_data['state'] = 'WAIT_DISTRICT'
+        elif query.data == "back_to_district":
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Октябрьский — 350₽", callback_data="district_350")],
+                [InlineKeyboardButton("Кировский — 400₽", callback_data="district_400")],
+                [InlineKeyboardButton("Свердловский — 450₽", callback_data="district_450")],
+                [InlineKeyboardButton("Ленинский — 550₽", callback_data="district_550")],
+                [InlineKeyboardButton("Индивидуальный тариф", callback_data="district_custom")],
+                [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_method")]
+            ])
+            await query.edit_message_text("Выберите район доставки:", reply_markup=kb)
+            context.user_data['state'] = 'WAIT_DISTRICT'
 
-    elif query.data == "back_to_address":
-        context.user_data['state'] = 'WAIT_ADDRESS'
-        await query.edit_message_text("📍 Введите полный адрес доставки:")
+        elif query.data == "back_to_address":
+            context.user_data['state'] = 'WAIT_ADDRESS'
+            await query.edit_message_text("📍 Введите полный адрес доставки:")
 
-    elif query.data == "back_to_date":
-        context.user_data['state'] = 'WAIT_DATE'
-        await query.edit_message_text("📅 Укажите дату доставки в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
+        elif query.data == "back_to_date":
+            context.user_data['state'] = 'WAIT_DATE'
+            await query.edit_message_text("📅 Укажите дату доставки в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
 
     elif query.data == "main_menu":
+        name = context.user_data.get("name")
+        phone = context.user_data.get("phone")
+
         context.user_data.clear()
+
+        if name:
+            context.user_data["name"] = name
+        if phone:
+            context.user_data["phone"] = phone
+
         await show_main_menu(update, context)
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, status="Создан", skip_client_message=False):
@@ -758,7 +794,7 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             review_keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔁 Повторить заказ", callback_data=f"repeat_{order_id}")],
                 [InlineKeyboardButton("🛍 Сделать новый заказ", callback_data="main_menu")],
-                [InlineKeyboardButton("⭐ Оставить отзыв + бонус", url="https://t.me/ТВОЙ_БОНУСНЫЙ_БОТ")]
+                [InlineKeyboardButton("⭐ Оставить отзыв + бонус", url="https://t.me/fruttosmile_bonus_bot")]
             ])
 
             await context.bot.send_message(
@@ -863,8 +899,9 @@ def main():
 
     app.add_handler(CallbackQueryHandler(delivery_method_handler, pattern="^method_"))
     app.add_handler(CallbackQueryHandler(district_handler, pattern="^district_"))
-    app.add_handler(CallbackQueryHandler(time_handler, pattern="^time_"))   # ← добавлен
-    app.add_handler(CallbackQueryHandler(back_handler, pattern="^(back_|main_menu$)"))
+    app.add_handler(CallbackQueryHandler(time_handler, pattern="^time_"))
+    app.add_handler(CallbackQueryHandler(back_handler, pattern="^(back_|main_menu)"))  # исправленный pattern
+
     app.add_handler(CallbackQueryHandler(payment_handler, pattern="^pay_"))
 
     app.add_handler(CallbackQueryHandler(confirm_handler, pattern="^(confirm_order|restart_order)$"))
