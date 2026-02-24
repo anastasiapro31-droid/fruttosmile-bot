@@ -5,6 +5,7 @@ import signal
 import sys
 import json
 import random
+import requests
 from datetime import datetime, date
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -23,6 +24,9 @@ from google.oauth2.service_account import Credentials
 # ================= НАСТРОЙКИ =================
 BOT_TOKEN = "8539880271:AAH1Dc_K378k11osJYw12oVbMqBj_IFH_N8"           # ← обязательно замени
 ADMIN_CHAT_ID = 1165444045                   # ← ID админа
+
+RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени на свой домен (например https://super-shop.retailcrm.ru)
+RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"                # ← вставь реальный ключ
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -59,6 +63,67 @@ async def safe_delete(message):
         await message.delete()
     except:
         pass
+
+# ================= НОРМАЛИЗАЦИЯ ТЕЛЕФОНА =================
+def normalize_phone(phone: str) -> str:
+    digits = re.sub(r"\D", "", phone)
+    if digits.startswith("8") and len(digits) == 11:
+        digits = "7" + digits[1:]
+    if digits.startswith("7") and len(digits) == 11:
+        return "+" + digits
+    return "+" + digits
+
+# ================= СОЗДАНИЕ КЛИЕНТА В RETAILCRM =================
+def create_customer_if_not_exists(name: str, phone: str):
+    if not RETAILCRM_URL or not RETAILCRM_API_KEY:
+        logging.warning("RetailCRM URL или API-ключ не указаны — пропускаем создание клиента")
+        return
+
+    normalized = normalize_phone(phone)
+
+    headers = {
+        "X-API-KEY": RETAILCRM_API_KEY
+    }
+
+    try:
+        # 1️⃣ Проверяем есть ли клиент
+        response = requests.get(
+            f"{RETAILCRM_URL}/api/v5/customers",
+            headers=headers,
+            params={"filter[phone]": normalized},
+            timeout=10
+        )
+
+        data = response.json()
+
+        if response.status_code == 200 and data.get("customers"):
+            logging.info(f"Клиент {normalized} уже существует в RetailCRM")
+            return
+
+        # 2️⃣ Если нет — создаём
+        payload = {
+            "customer": {
+                "firstName": name or "Клиент",
+                "phones": [
+                    {"number": normalized}
+                ]
+            }
+        }
+
+        create_response = requests.post(
+            f"{RETAILCRM_URL}/api/v5/customers/create",
+            headers=headers,
+            json=payload,
+            timeout=10
+        )
+
+        if create_response.status_code in (200, 201):
+            logging.info(f"Клиент {name} ({normalized}) успешно создан в RetailCRM")
+        else:
+            logging.error(f"Ошибка создания клиента в RetailCRM: {create_response.text}")
+
+    except Exception as e:
+        logging.error(f"Ошибка связи с RetailCRM: {e}")
 
 # ================= КАТАЛОГ ТОВАРОВ =================
 PRODUCTS = {
@@ -168,7 +233,8 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     name = contact.first_name or contact.last_name or "Клиент"
-    phone = contact.phone_number
+    phone_raw = contact.phone_number
+    phone = normalize_phone(phone_raw)
 
     context.user_data['name'] = name
     context.user_data['phone'] = phone
@@ -178,6 +244,9 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Теперь можете выбирать товары и оформлять заказы мгновенно.",
         reply_markup=ReplyKeyboardRemove()
     )
+
+    # Отправляем клиента в RetailCRM
+    create_customer_if_not_exists(name, phone)
 
     await show_main_menu(update, context)
 
@@ -482,10 +551,8 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
         except:
             pass
 
-        await query.edit_message_text(
-            "💬 Напишите пожелания к заказу\n"
-            "(номер получателя, надпись на открытке, особые просьбы и т.д.)\n"
-            "Или напишите 'Нет':"
+        await query.message.chat.send_message(
+            "💬 Напишите комментарий к заказу (или напишите 'Нет'):"
         )
 
 async def district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -591,9 +658,8 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
 
-    await query.edit_message_text(
-        "💬 Напишите пожелания к заказу\n"
-        "(номер получателя, надпись на открытке, особые просьбы и т.д.):"
+    await query.message.chat.send_message(
+        "💬 Напишите пожелания к заказу (надпись на открытке, особые просьбы и т.д.):"
     )
 
 async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
