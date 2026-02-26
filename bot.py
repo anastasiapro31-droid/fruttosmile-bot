@@ -6,7 +6,7 @@ import sys
 import json
 import random
 import requests
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
@@ -23,10 +23,13 @@ from google.oauth2.service_account import Credentials
 
 # ================= НАСТРОЙКИ =================
 BOT_TOKEN = "8539880271:AAEuzAdty5qxfjlwRfMZhAh6SnH6eFUq_-4"           # ← обязательно замени
-ADMIN_CHAT_ID = 1165444045                   # ← ID админа
+ADMIN_CHAT_ID = 1165444045        # ← ID админа
 
-RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени на свой домен (например https://super-shop.retailcrm.ru)
+RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени
 RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"                # ← вставь реальный ключ
+
+# Ссылка на 2ГИС (замени на реальную)
+TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← пример, замени
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -246,7 +249,6 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardRemove()
     )
 
-    # Отправляем клиента в RetailCRM
     create_customer_if_not_exists(name, phone)
 
     await show_main_menu(update, context)
@@ -385,7 +387,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
         context.user_data['state'] = 'WAIT_DATE'
-        await update.message.reply_text("📅 Укажите дату доставки в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
+        await update.message.reply_text("📅 Укажите дату доставки/самовывоза в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
 
     elif state == 'WAIT_DATE':
         try:
@@ -404,7 +406,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_address")]
             ])
 
-            await update.message.reply_text("⏰ Выберите интервал доставки:", reply_markup=kb)
+            await update.message.reply_text("⏰ Выберите интервал:", reply_markup=kb)
 
         except ValueError:
             await update.message.reply_text("Введите дату в формате ДД.ММ.ГГГГ")
@@ -413,6 +415,33 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['comment'] = text
         context.user_data['state'] = 'WAIT_CONFIRM'
         await show_order_preview(update, context)
+
+    elif state == "WAIT_FEEDBACK_TEXT":
+        feedback = text
+        rating = context.user_data.get("last_rating")
+        name = context.user_data.get("name")
+        phone = context.user_data.get("phone")
+
+        message = (
+            f"⚠️ Негативный отзыв\n\n"
+            f"Имя: {name}\n"
+            f"Телефон: {phone}\n"
+            f"Оценка: {rating}\n\n"
+            f"Комментарий:\n{feedback}"
+        )
+
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=message
+        )
+
+        await update.message.reply_text(
+            "Спасибо за обратную связь 🙏\n"
+            "Наш менеджер свяжется с вами."
+        )
+
+        context.user_data.pop("state", None)
+        context.user_data.pop("last_rating", None)
 
 async def show_order_preview(update, context):
     d = context.user_data
@@ -544,8 +573,7 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data['method'] = "Самовывоз"
         context.user_data['delivery_fee'] = 0
         context.user_data['address'] = "Самовывоз"
-        context.user_data['delivery_time'] = "По договоренности"
-        context.user_data['state'] = 'WAIT_COMMENT'
+        context.user_data['state'] = 'WAIT_DATE'
 
         try:
             await query.message.delete()
@@ -553,7 +581,7 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
             pass
 
         await query.message.chat.send_message(
-            "💬 Напишите комментарий к заказу (или напишите 'Нет'):"
+            "📅 Укажите дату самовывоза в формате ДД.ММ.ГГГГ\nПример: 25.12.2025"
         )
 
 async def district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -843,7 +871,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
 
 async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    await query.answer()  # ← только один раз!
 
     data = query.data
     action, order_id = data.split("_", 1)
@@ -885,7 +913,16 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             text=status_text_map.get(action, f"Статус изменён: {new_status}")
         )
 
-    await query.answer(f"Статус: {new_status}")
+    if action == "done":
+        # Запускаем запрос оценки через 12 часов после доставки
+        if client_id:
+            context.application.job_queue.run_once(
+                send_review_request,
+                when=timedelta(hours=12),
+                data={"chat_id": client_id},
+                name=f"review_{order_id}"
+            )
+            logging.info(f"Запланирован запрос оценки через 12 часов для клиента {client_id} (заказ {order_id})")
 
     if action == "paid":
         new_kb = InlineKeyboardMarkup([
@@ -928,6 +965,56 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             )
 
         context.user_data.clear()
+
+async def send_review_request(context: ContextTypes.DEFAULT_TYPE):
+    job = context.job
+    chat_id = job.data["chat_id"]
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⭐1", callback_data="rate_1"),
+            InlineKeyboardButton("⭐2", callback_data="rate_2"),
+            InlineKeyboardButton("⭐3", callback_data="rate_3"),
+            InlineKeyboardButton("⭐4", callback_data="rate_4"),
+            InlineKeyboardButton("⭐5", callback_data="rate_5"),
+        ]
+    ])
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="✨ Оцените ваш заказ от 1 до 5:",
+        reply_markup=keyboard
+    )
+
+async def rating_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    rating = int(query.data.replace("rate_", ""))
+    context.user_data["last_rating"] = rating
+
+    if rating == 5:
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "Оставить отзыв в 2ГИС ⭐",
+                    url=TWOGIS_REVIEW_URL
+                )
+            ]
+        ])
+
+        await query.message.reply_text(
+            "Спасибо за высокую оценку! ❤️\n\n"
+            "Нам будет очень приятно, если вы оставите отзыв в 2ГИС:",
+            reply_markup=keyboard
+        )
+    else:
+        context.user_data["state"] = "WAIT_FEEDBACK_TEXT"
+
+        await query.message.reply_text(
+            "Нам очень жаль, что что-то не понравилось 🙏\n"
+            "Пожалуйста, опишите проблему."
+        )
 
 async def repeat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1027,6 +1114,7 @@ def main():
     app.add_handler(CallbackQueryHandler(back_handler, pattern="^(back_.*|main_menu|step_back)$"))
 
     app.add_handler(CallbackQueryHandler(payment_handler, pattern="^pay_"))
+    app.add_handler(CallbackQueryHandler(rating_handler, pattern="^rate_"))
 
     app.add_handler(CallbackQueryHandler(confirm_handler, pattern="^(confirm_order|restart_order)$"))
     app.add_handler(CallbackQueryHandler(confirm_district_handler, pattern="^confirm_district$"))
