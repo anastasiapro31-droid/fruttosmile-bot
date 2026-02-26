@@ -25,10 +25,10 @@ from google.oauth2.service_account import Credentials
 BOT_TOKEN = "8539880271:AAHlIoQUbX5Mz-HW3jxKzSWlr7iXX5YgYF8"           # ← обязательно замени
 ADMIN_CHAT_ID = 1165444045        # ← ID админа
 
-RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени на свой
+RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени
 RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"                # ← вставь реальный ключ
 
-TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← замени на реальную ссылку
+TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← замени на реальную
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -661,14 +661,33 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['delivery_time'] = selected_time
     context.user_data['state'] = 'WAIT_COMMENT'
 
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Без комментария", callback_data="no_comment")]
+    ])
+
     try:
         await query.message.delete()
     except:
         pass
 
     await query.message.chat.send_message(
-        "💬 Напишите пожелания к заказу (надпись на открытке, особые просьбы и т.д.):"
+        "💬 Напишите пожелания к заказу (надпись на открытке, особые просьбы и т.д.):",
+        reply_markup=kb
     )
+
+async def no_comment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    context.user_data['comment'] = "—"
+    context.user_data['state'] = 'WAIT_CONFIRM'
+
+    try:
+        await query.message.delete()
+    except:
+        pass
+
+    await show_order_preview(update, context)
 
 async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -889,7 +908,6 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 if row.get("ID заказа") == order_id:
                     client_id = row.get("Telegram ID")
                     order_method = row.get("Способ")
-                    # Обновляем статус в таблице
                     row_index = records.index(row) + 2
                     orders_sheet.update_cell(row_index, 12, new_status)
                     break
@@ -916,7 +934,6 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 ])
             )
 
-    # Запрос оценки через 12 часов после финального статуса
     if action in ["done", "picked"] and client_id:
         context.application.job_queue.run_once(
             send_review_request,
@@ -926,7 +943,6 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         logging.info(f"Запланирован запрос оценки через 12 ч для {client_id} (заказ {order_id})")
 
-    # Обновление клавиатуры админа
     if action == "paid":
         await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("✅ Принять заказ", callback_data=f"accept_{order_id}")]
@@ -1059,7 +1075,6 @@ async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == "confirm_order":
-        # Проверка наличия даты перед подтверждением
         if not context.user_data.get("date"):
             await query.message.reply_text("❗ Пожалуйста, укажите дату самовывоза/доставки.")
             return
@@ -1112,6 +1127,7 @@ def main():
 
     app.add_handler(CallbackQueryHandler(payment_handler, pattern="^pay_"))
     app.add_handler(CallbackQueryHandler(rating_handler, pattern="^rate_"))
+    app.add_handler(CallbackQueryHandler(no_comment_handler, pattern="^no_comment$"))
 
     app.add_handler(CallbackQueryHandler(confirm_handler, pattern="^(confirm_order|restart_order)$"))
     app.add_handler(CallbackQueryHandler(confirm_district_handler, pattern="^confirm_district$"))
