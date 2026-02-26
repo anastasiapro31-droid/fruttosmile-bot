@@ -25,11 +25,10 @@ from google.oauth2.service_account import Credentials
 BOT_TOKEN = "8539880271:AAHlIoQUbX5Mz-HW3jxKzSWlr7iXX5YgYF8"           # ← обязательно замени
 ADMIN_CHAT_ID = 1165444045        # ← ID админа
 
-RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени
+RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени на свой
 RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"                # ← вставь реальный ключ
 
-# Ссылка на 2ГИС (замени на реальную)
-TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← пример, замени
+TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← замени на реальную ссылку
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -85,12 +84,9 @@ def create_customer_if_not_exists(name: str, phone: str):
     normalized = normalize_phone(phone)
     phone_no_plus = normalized.replace("+", "")
 
-    headers = {
-        "X-API-KEY": RETAILCRM_API_KEY
-    }
+    headers = {"X-API-KEY": RETAILCRM_API_KEY}
 
     try:
-        # Проверяем по номеру БЕЗ +
         response = requests.get(
             f"{RETAILCRM_URL}/api/v5/customers",
             headers=headers,
@@ -98,19 +94,14 @@ def create_customer_if_not_exists(name: str, phone: str):
             timeout=10
         )
 
-        data = response.json()
-
-        if response.status_code == 200 and data.get("customers"):
+        if response.status_code == 200 and response.json().get("customers"):
             logging.info(f"Клиент {phone_no_plus} уже существует")
             return
 
-        # Создаём клиента
         payload = {
             "customer": {
                 "firstName": name or "Клиент",
-                "phones": [
-                    {"number": phone_no_plus}
-                ]
+                "phones": [{"number": phone_no_plus}]
             }
         }
 
@@ -157,7 +148,6 @@ PRODUCTS = {
             }
         ]
     },
-
     "hat": {
         "name": "🎩 Шляпные коробки",
         "photo": "http://fruttosmile.su/wp-content/uploads/2026/02/image-23-02-26-11-11.jpeg",
@@ -183,7 +173,6 @@ PRODUCTS = {
             }
         ]
     },
-
     "heart": {
         "name": "❤️ Коробочки «Сердце»",
         "photo": "http://fruttosmile.su/wp-content/uploads/2026/02/image-23-02-26-11-11-1.jpeg",
@@ -269,10 +258,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
-        await update.callback_query.message.chat.send_message(
-            text,
-            reply_markup=keyboard
-        )
+        await update.callback_query.message.chat.send_message(text, reply_markup=keyboard)
     else:
         await update.message.reply_text(text, reply_markup=keyboard)
 
@@ -430,10 +416,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Комментарий:\n{feedback}"
         )
 
-        await context.bot.send_message(
-            chat_id=ADMIN_CHAT_ID,
-            text=message
-        )
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=message)
 
         await update.message.reply_text(
             "Спасибо за обратную связь 🙏\n"
@@ -448,10 +431,8 @@ async def show_order_preview(update, context):
     total = d.get('price', 0) * d.get('qty', 0) + d.get('delivery_fee', 0)
 
     product_text = d.get('product', 'Не указано')
-    if d.get("size"):
-        product_text += f"\nРазмер: {d.get('size')}"
-    if d.get("decor"):
-        product_text += f"\nДекор: {d.get('decor')}"
+    if d.get("size"): product_text += f"\nРазмер: {d.get('size')}"
+    if d.get("decor"): product_text += f"\nДекор: {d.get('decor')}"
 
     text_order = (
         "📋 **Проверьте ваш заказ:**\n\n"
@@ -505,10 +486,8 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         total_final = total_items + d.get('delivery_fee', 0)
 
         product_text = d.get('product', 'Не указано')
-        if d.get("size"):
-            product_text += f"\nРазмер: {d.get('size')}"
-        if d.get("decor"):
-            product_text += f"\nДекор: {d.get('decor')}"
+        if d.get("size"): product_text += f"\nРазмер: {d.get('size')}"
+        if d.get("decor"): product_text += f"\nДекор: {d.get('decor')}"
 
         payment_text = (
             f"✅ **Заказ оформлен!**\n\n"
@@ -782,10 +761,8 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
     total_final = total_items + d.get('delivery_fee', 0)
 
     product_text = d.get('product', 'Не указано')
-    if d.get("size"):
-        product_text += f"\nРазмер: {d.get('size')}"
-    if d.get("decor"):
-        product_text += f"\nДекор: {d.get('decor')}"
+    if d.get("size"): product_text += f"\nРазмер: {d.get('size')}"
+    if d.get("decor"): product_text += f"\nДекор: {d.get('decor')}"
 
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
@@ -814,11 +791,17 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
             [InlineKeyboardButton("✅ Принять заказ", callback_data=f"accept_{order_id}")]
         ])
     else:
-        admin_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
-            [InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")],
-            [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
-        ])
+        if d.get("method") == "Самовывоз":
+            admin_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
+                [InlineKeyboardButton("✅ Выдан клиенту", callback_data=f"picked_{order_id}")]
+            ])
+        else:
+            admin_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
+                [InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")],
+                [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
+            ])
 
     try:
         await context.bot.send_photo(
@@ -871,7 +854,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
 
 async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()  # ← только один раз!
+    await query.answer()
 
     data = query.data
     action, order_id = data.split("_", 1)
@@ -881,7 +864,8 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         "accept": "Принят",
         "ready": "Готов",
         "sent": "Передан курьеру",
-        "done": "Доставлен"
+        "done": "Доставлен",
+        "picked": "Выдан клиенту"
     }
 
     status_text_map = {
@@ -889,82 +873,96 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         "accept": f"✅ Ваш заказ {order_id} принят в работу!",
         "ready": f"🍳 Ваш заказ {order_id} готов!",
         "sent": f"🚚 Ваш заказ {order_id} передан курьеру!",
-        "done": f"🎉 Ваш заказ {order_id} успешно доставлен!"
+        "done": f"🎉 Ваш заказ {order_id} успешно доставлен!",
+        "picked": f"🎉 Ваш заказ {order_id} выдан! Спасибо за покупку!"
     }
 
     new_status = status_map.get(action)
 
     client_id = None
+    order_method = None
 
     if orders_sheet:
         try:
             records = orders_sheet.get_all_records()
-            for i, row in enumerate(records):
+            for row in records:
                 if row.get("ID заказа") == order_id:
-                    orders_sheet.update_cell(i + 2, 12, new_status)
                     client_id = row.get("Telegram ID")
+                    order_method = row.get("Способ")
+                    # Обновляем статус в таблице
+                    row_index = records.index(row) + 2
+                    orders_sheet.update_cell(row_index, 12, new_status)
                     break
         except Exception as e:
-            logging.error(f"Ошибка обновления статуса: {e}")
+            logging.error(f"Ошибка чтения/обновления таблицы: {e}")
 
     if client_id:
-        await context.bot.send_message(
-            chat_id=client_id,
-            text=status_text_map.get(action, f"Статус изменён: {new_status}")
-        )
-
-    if action == "done":
-        # Запускаем запрос оценки через 12 часов после доставки
-        if client_id:
-            context.application.job_queue.run_once(
-                send_review_request,
-                when=timedelta(hours=12),
-                data={"chat_id": client_id},
-                name=f"review_{order_id}"
+        if action == "ready":
+            await context.bot.send_message(
+                chat_id=client_id,
+                text="🍳 Ваш заказ готов и передаётся в доставку / ожидает выдачи 💝"
             )
-            logging.info(f"Запланирован запрос оценки через 12 часов для клиента {client_id} (заказ {order_id})")
+        elif action == "sent":
+            await context.bot.send_message(
+                chat_id=client_id,
+                text="🚚 Ваш заказ передан курьеру!\nОжидайте доставку 💝"
+            )
+        elif action in ["done", "picked"]:
+            await context.bot.send_message(
+                chat_id=client_id,
+                text="💖 Спасибо за заказ!\n\nБудем рады видеть вас снова 💝",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🛍 Сделать ещё заказ", callback_data="main_menu")]
+                ])
+            )
 
+    # Запрос оценки через 12 часов после финального статуса
+    if action in ["done", "picked"] and client_id:
+        context.application.job_queue.run_once(
+            send_review_request,
+            when=timedelta(hours=12),
+            data={"chat_id": client_id},
+            name=f"review_{order_id}"
+        )
+        logging.info(f"Запланирован запрос оценки через 12 ч для {client_id} (заказ {order_id})")
+
+    # Обновление клавиатуры админа
     if action == "paid":
-        new_kb = InlineKeyboardMarkup([
+        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("✅ Принять заказ", callback_data=f"accept_{order_id}")]
-        ])
-        await query.edit_message_reply_markup(reply_markup=new_kb)
+        ]))
 
     elif action == "accept":
-        new_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
-            [InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")],
-            [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
-        ])
-        await query.edit_message_reply_markup(reply_markup=new_kb)
+        if order_method == "Самовывоз":
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
+                [InlineKeyboardButton("✅ Выдан клиенту", callback_data=f"picked_{order_id}")]
+            ])
+        else:
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
+                [InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")],
+                [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
+            ])
+        await query.edit_message_reply_markup(reply_markup=kb)
 
     elif action in ["ready", "sent"]:
         remaining = []
         if action != "ready":
             remaining.append([InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")])
-        if action != "sent":
+        if action != "sent" and order_method != "Самовывоз":
             remaining.append([InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")])
-        remaining.append([InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")])
+        if order_method == "Самовывоз":
+            remaining.append([InlineKeyboardButton("✅ Выдан клиенту", callback_data=f"picked_{order_id}")])
+        else:
+            remaining.append([InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")])
         if remaining:
             await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(remaining))
 
-    elif action == "done":
+    elif action in ["done", "picked"]:
         await query.edit_message_reply_markup(reply_markup=None)
 
-        if client_id:
-            review_keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔁 Повторить заказ", callback_data=f"repeat_{order_id}")],
-                [InlineKeyboardButton("🛍 Сделать новый заказ", callback_data="main_menu")],
-                [InlineKeyboardButton("⭐ Оставить отзыв + бонус", url="https://t.me/fruttosmile_bonus_bot")]
-            ])
-
-            await context.bot.send_message(
-                chat_id=client_id,
-                text="🎉 Спасибо за заказ!\n\nБудем рады видеть вас снова 💝",
-                reply_markup=review_keyboard
-            )
-
-        context.user_data.clear()
+    context.user_data.clear()
 
 async def send_review_request(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
@@ -995,12 +993,7 @@ async def rating_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if rating == 5:
         keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(
-                    "Оставить отзыв в 2ГИС ⭐",
-                    url=TWOGIS_REVIEW_URL
-                )
-            ]
+            [InlineKeyboardButton("Оставить отзыв в 2ГИС ⭐", url=TWOGIS_REVIEW_URL)]
         ])
 
         await query.message.reply_text(
@@ -1010,7 +1003,6 @@ async def rating_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         context.user_data["state"] = "WAIT_FEEDBACK_TEXT"
-
         await query.message.reply_text(
             "Нам очень жаль, что что-то не понравилось 🙏\n"
             "Пожалуйста, опишите проблему."
@@ -1034,7 +1026,7 @@ async def repeat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 qty = int(row.get("Кол-во") or 1)
                 total = int(row.get("Сумма") or 0)
                 price = total // qty if qty > 0 else total
-            except (ValueError, TypeError, ZeroDivisionError):
+            except:
                 qty = 1
                 price = 0
 
@@ -1067,6 +1059,11 @@ async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == "confirm_order":
+        # Проверка наличия даты перед подтверждением
+        if not context.user_data.get("date"):
+            await query.message.reply_text("❗ Пожалуйста, укажите дату самовывоза/доставки.")
+            return
+
         await show_payment_options(update, context)
 
     elif query.data == "restart_order":
@@ -1120,7 +1117,7 @@ def main():
     app.add_handler(CallbackQueryHandler(confirm_district_handler, pattern="^confirm_district$"))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-    app.add_handler(CallbackQueryHandler(order_status_handler, pattern="^(paid|accept|ready|sent|done)_"))
+    app.add_handler(CallbackQueryHandler(order_status_handler, pattern="^(paid|accept|ready|sent|done|picked)_"))
     app.add_handler(CallbackQueryHandler(repeat_handler, pattern="^repeat_"))
     app.add_handler(MessageHandler(filters.PHOTO, handle_payment_screenshot))
 
