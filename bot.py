@@ -28,7 +28,7 @@ ADMIN_CHAT_ID = 1165444045        # ← ID админа
 RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени
 RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"                # ← вставь реальный ключ
 
-TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← замени на реальную
+TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← замени
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -362,7 +362,7 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Выберите способ получения:", reply_markup=kb)
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await safe_delete(update.message)
+    # await safe_delete(update.message)  # ← закомментировано, чтобы не терять сообщение с датой
 
     state = context.user_data.get('state')
     if not state:
@@ -810,7 +810,8 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
             [InlineKeyboardButton("✅ Принять заказ", callback_data=f"accept_{order_id}")]
         ])
     else:
-        if d.get("method") == "Самовывоз":
+        method = d.get("method", "").strip()
+        if method == "Самовывоз":
             admin_kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
                 [InlineKeyboardButton("✅ Выдан клиенту", callback_data=f"picked_{order_id}")]
@@ -907,7 +908,8 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             for row in records:
                 if row.get("ID заказа") == order_id:
                     client_id = row.get("Telegram ID")
-                    order_method = row.get("Способ")
+                    order_method_raw = row.get("Способ", "")
+                    order_method = order_method_raw.strip() if order_method_raw else ""
                     row_index = records.index(row) + 2
                     orders_sheet.update_cell(row_index, 12, new_status)
                     break
