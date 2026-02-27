@@ -278,9 +278,12 @@ async def product_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data.clear()
 
+    if name:
+        context.user_data["name"] = name
+    if phone:
+        context.user_data["phone"] = phone
+
     context.user_data.update({
-        "name": name if name else None,
-        "phone": phone if phone else None,
         "product_key": product_key,
         "product_photo": product["photo"],
         "step_index": 0
@@ -316,6 +319,11 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    if not context.user_data.get("product_key"):
+        await query.message.reply_text("Пожалуйста, начните заказ заново.")
+        await show_main_menu(update, context)
+        return
+
     product_key = context.user_data.get("product_key")
     product = PRODUCTS.get(product_key)
     step_index = context.user_data.get("step_index", 0)
@@ -326,7 +334,13 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     selected_id = query.data.replace("opt_", "")
+
+    # Защита от нажатия старых кнопок
     step = product["steps"][step_index]
+    valid_ids = [o["id"] for o in step["options"]]
+    if selected_id not in valid_ids:
+        await query.answer("Кнопка устарела, выберите заново", show_alert=False)
+        return
 
     try:
         selected_option = next(o for o in step["options"] if o["id"] == selected_id)
@@ -365,7 +379,15 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     state = context.user_data.get('state')
 
     # Жёсткая защита: обрабатываем ТОЛЬКО нужные состояния
-    if state not in ["WAIT_ADDRESS", "WAIT_DATE", "WAIT_COMMENT", "WAIT_FEEDBACK_TEXT"]:
+    if state not in [
+        "WAIT_ADDRESS",
+        "WAIT_DATE",
+        "WAIT_TIME",
+        "WAIT_COMMENT",
+        "WAIT_FEEDBACK_TEXT",
+        "WAIT_PAYMENT",
+        "WAIT_METHOD"
+    ]:
         print(f"Игнорируем текст, state не подходит: {state}")
         return
 
@@ -427,6 +449,16 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("state", None)
         context.user_data.pop("last_rating", None)
 
+    elif state == "WAIT_PAYMENT":
+        await update.message.reply_text(
+            "Пожалуйста, выберите способ оплаты кнопками ниже 👇"
+        )
+
+    elif state == "WAIT_METHOD":
+        await update.message.reply_text(
+            "Пожалуйста, выберите способ получения кнопками ниже 👇"
+        )
+
 async def show_order_preview(update, context):
     d = context.user_data
     total = d.get('price', 0) * d.get('qty', 0) + d.get('delivery_fee', 0)
@@ -442,8 +474,8 @@ async def show_order_preview(update, context):
         f"💰 Сумма: {total} ₽\n"
         f"🚛 Способ получения: {d.get('method')}\n"
         f"🏠 Адрес: {d.get('address', '-')}\n"
-        f"📅 Дата: {d.get('date', '-') or 'не указана'}\n"
-        f"⏰ Время: {d.get('delivery_time', '-') or 'не указано'}\n"
+        f"📅 Дата: {d.get('date') or 'не указана'}\n"
+        f"⏰ Время: {d.get('delivery_time') or 'не указано'}\n"
         f"💬 Комментарий: {d.get('comment') or '—'}"
     )
 
@@ -557,7 +589,7 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data['method'] = "Самовывоз"
         context.user_data['delivery_fee'] = 0
         context.user_data['address'] = "Самовывоз"
-        context.user_data['state'] = 'WAIT_DATE'
+        context.user_data['state'] = 'WAIT_DATE'  # ← исправлено: сразу к дате!
 
         try:
             await query.message.delete()
@@ -634,6 +666,9 @@ async def confirm_district_handler(update: Update, context: ContextTypes.DEFAULT
 async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    if context.user_data.get("state") != "WAIT_TIME":
+        return
 
     time_map = {
         "time_9_12": ("9:00–12:00", 9),
@@ -799,9 +834,9 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         f"📞 Тел: {d.get('phone')}\n"
         f"🚛 Способ: {d.get('method')}\n"
         f"🏠 Адрес: {d.get('address', '-')}\n"
-        f"📅 Дата: {d.get('date', '-') or 'не указана'}\n"
-        f"⏰ Время: {d.get('delivery_time', '-') or 'не указано'}\n"
-        f"💬 Комментарий: {d.get('comment', '-')}\n"
+        f"📅 Дата: {d.get('date') or 'не указана'}\n"
+        f"⏰ Время: {d.get('delivery_time') or 'не указано'}\n"
+        f"💬 Комментарий: {d.get('comment') or '—'}\n"
         f"📌 Статус: {status}\n"
         f"━━━━━━━━━━━━━━━"
     )
@@ -891,15 +926,6 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         "sent": "Передан курьеру",
         "done": "Доставлен",
         "picked": "Выдан клиенту"
-    }
-
-    status_text_map = {
-        "paid": f"💳 Ваш заказ {order_id} успешно оплачен! Мы приступаем к его обработке.",
-        "accept": f"✅ Ваш заказ {order_id} принят в работу!",
-        "ready": f"🍳 Ваш заказ {order_id} готов!",
-        "sent": f"🚚 Ваш заказ {order_id} передан курьеру!",
-        "done": f"🎉 Ваш заказ {order_id} успешно доставлен!",
-        "picked": f"🎉 Ваш заказ {order_id} выдан! Спасибо за покупку!"
     }
 
     new_status = status_map.get(action)
@@ -1100,7 +1126,7 @@ async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await show_payment_options(update, context)
-        context.user_data["state"] = "WAIT_PAYMENT"  # ← ключевое улучшение
+        context.user_data["state"] = "WAIT_PAYMENT"
 
     elif query.data == "restart_order":
         context.user_data.clear()
