@@ -28,7 +28,7 @@ ADMIN_CHAT_ID = 1165444045        # ← ID админа
 RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени
 RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"                # ← вставь реальный ключ
 
-TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← замени
+TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← замени на реальную
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -362,10 +362,11 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Выберите способ получения:", reply_markup=kb)
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # await safe_delete(update.message)  # ← закомментировано, чтобы не терять сообщение с датой
-
     state = context.user_data.get('state')
-    if not state:
+
+    # Жёсткая защита: обрабатываем ТОЛЬКО нужные состояния
+    if state not in ["WAIT_ADDRESS", "WAIT_DATE", "WAIT_COMMENT", "WAIT_FEEDBACK_TEXT"]:
+        print(f"Игнорируем текст, state не подходит: {state}")
         return
 
     text = update.message.text.strip()
@@ -441,8 +442,8 @@ async def show_order_preview(update, context):
         f"💰 Сумма: {total} ₽\n"
         f"🚛 Способ получения: {d.get('method')}\n"
         f"🏠 Адрес: {d.get('address', '-')}\n"
-        f"📅 Дата: {d.get('date', '-')}\n"
-        f"⏰ Время: {d.get('delivery_time', '-')}\n"
+        f"📅 Дата: {d.get('date', '-') or 'не указана'}\n"
+        f"⏰ Время: {d.get('delivery_time', '-') or 'не указано'}\n"
         f"💬 Комментарий: {d.get('comment') or '—'}"
     )
 
@@ -527,6 +528,10 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    context.user_data.pop('date', None)
+    context.user_data.pop('delivery_time', None)
+    context.user_data.pop('comment', None)
 
     if query.data == "method_delivery":
         context.user_data['method'] = "Доставка"
@@ -794,8 +799,8 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         f"📞 Тел: {d.get('phone')}\n"
         f"🚛 Способ: {d.get('method')}\n"
         f"🏠 Адрес: {d.get('address', '-')}\n"
-        f"📅 Дата: {d.get('date', '-')}\n"
-        f"⏰ Время: {d.get('delivery_time', '-')}\n"
+        f"📅 Дата: {d.get('date', '-') or 'не указана'}\n"
+        f"⏰ Время: {d.get('delivery_time', '-') or 'не указано'}\n"
         f"💬 Комментарий: {d.get('comment', '-')}\n"
         f"📌 Статус: {status}\n"
         f"━━━━━━━━━━━━━━━"
@@ -862,8 +867,8 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         f"📦 {product_text}\n"
         f"🔢 Количество: {d.get('qty')}\n"
         f"🚛 Способ: {d.get('method')}\n"
-        f"📅 Дата: {d.get('date')}\n"
-        f"⏰ Время: {d.get('delivery_time')}\n\n"
+        f"📅 Дата: {d.get('date') or 'не указана'}\n"
+        f"⏰ Время: {d.get('delivery_time') or 'не указано'}\n\n"
         f"💰 **Итого к оплате: {total_final} ₽**\n\n"
         f"Спасибо, что выбрали Fruttosmile 💝"
     )
@@ -980,7 +985,7 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     elif action in ["done", "picked"]:
         await query.edit_message_reply_markup(reply_markup=None)
 
-    context.user_data.clear()
+    context.user_data.pop("state", None)
 
 async def send_review_request(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
@@ -1048,6 +1053,11 @@ async def repeat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 qty = 1
                 price = 0
 
+            context.user_data.pop("date", None)
+            context.user_data.pop("delivery_time", None)
+            context.user_data.pop("comment", None)
+            context.user_data.pop("state", None)
+
             context.user_data.update({
                 "product": row.get("Товар"),
                 "qty": qty,
@@ -1077,11 +1087,20 @@ async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == "confirm_order":
+        if context.user_data.get("state") != "WAIT_CONFIRM":
+            await query.message.reply_text("❗ Сначала завершите оформление заказа.")
+            return
+
         if not context.user_data.get("date"):
-            await query.message.reply_text("❗ Пожалуйста, укажите дату самовывоза/доставки.")
+            await query.message.reply_text("❗ Пожалуйста, укажите дату.")
+            return
+
+        if not context.user_data.get("delivery_time"):
+            await query.message.reply_text("❗ Пожалуйста, выберите время.")
             return
 
         await show_payment_options(update, context)
+        context.user_data["state"] = "WAIT_PAYMENT"  # ← ключевое улучшение
 
     elif query.data == "restart_order":
         context.user_data.clear()
