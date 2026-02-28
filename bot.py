@@ -398,8 +398,8 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         step = product["steps"][step_index]
 
-    valid_ids = [o["id"] for o in step["options"]]
-    if selected_id not in valid_ids:
+    valid_ids = [str(o["id"]) for o in step["options"]]
+    if str(selected_id) not in valid_ids:
         await query.answer("Кнопка устарела, выберите заново", show_alert=False)
         return
 
