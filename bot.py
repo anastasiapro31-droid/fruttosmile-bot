@@ -384,7 +384,7 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
 
             context.user_data["custom_steps"] = custom_steps
-            context.user_data["step_index"] = 1
+            context.user_data["step_index"] = -1
             context.user_data["product"] = f"{product['name']} ({context.user_data['box_type']})"
 
             await show_step(query, context, product)
