@@ -141,20 +141,20 @@ PRODUCTS = {
             {
                 "title": "Выберите размер:",
                 "options": [
-                    {"id": "17", "label": "17–19 ягод — 3790₽", "price": 3790},
-                    {"id": "20", "label": "20–23 ягоды — 4390₽", "price": 4390},
+                    {"id": "17", "label": "17–19 ягод — 4190₽", "price": 4190},
+                    {"id": "20", "label": "20–23 ягоды — 4890₽", "price": 4890},
                     {"id": "25", "label": "25–27 ягод — 5590₽", "price": 5590},
-                    {"id": "30", "label": "30–33 ягоды — 5790₽", "price": 5790},
-                    {"id": "35", "label": "35–37 ягод — 6790₽", "price": 6790},
+                    {"id": "30", "label": "30–33 ягоды — 5990₽", "price": 5990},
+                    {"id": "35", "label": "35–37 ягод — 6990₽", "price": 6990},
                 ]
             },
             {
                 "title": "Выберите декор (1–4):",
                 "options": [
-                    {"id": "1", "label": "1 — Простой"},
-                    {"id": "2", "label": "2 — Посыпка"},
-                    {"id": "3", "label": "3 — Декор №1"},
-                    {"id": "4", "label": "4 — Как на фото"},
+                    {"id": "1", "label": "1 — Дизайн №1 (Разный шоколад с ажурами)"},
+                    {"id": "2", "label": "2 — Дизайн №2 (Молочный шоколад с посыпками и свежей ягодой)"},
+                    {"id": "3", "label": "3 — Дизайн №3 (Разный шоколад с ажурами и голубикой)"},
+                    {"id": "4", "label": "4 — Дизайн №4 (Молочно-белый с голубикой)"},
                 ]
             }
         ]
@@ -166,19 +166,20 @@ PRODUCTS = {
             {
                 "title": "Выберите размер:",
                 "options": [
-                    {"id": "12", "label": "12 ягод — 2490₽", "price": 2490},
-                    {"id": "16", "label": "16 ягод — 2990₽", "price": 2990},
-                    {"id": "20", "label": "20 ягод — 3990₽", "price": 3990},
-                    {"id": "25", "label": "25 ягод — 4990₽", "price": 4990},
+                    {"id": "12", "label": "10-12 ягод — 3190₽", "price": 3190},
+                    {"id": "16", "label": "15-17 ягод — 4390₽", "price": 4390},
+                    {"id": "20", "label": "18-20 ягод — 4790₽", "price": 4790},
+                    {"id": "25", "label": "23-25 ягод — 5290₽", "price": 5290},
+                    {"id": "35", "label": "33-35 ягод — 7290₽", "price": 7290},
                 ]
             },
             {
                 "title": "Выберите декор (1–4):",
                 "options": [
-                    {"id": "1", "label": "1 — Простой"},
-                    {"id": "2", "label": "2 — Посыпка"},
-                    {"id": "3", "label": "3 — Декор №1"},
-                    {"id": "4", "label": "4 — Как на фото"},
+                    {"id": "1", "label": "Дизайн №1 (Разный шоколад с полосками и сердечками)"},
+                    {"id": "2", "label": "Дизайн №2 (Разный шоколад с полосками)"},
+                    {"id": "3", "label": "Дизайн №3 (Молочный с посыпками/полосками и ягодами)"},
+                    {"id": "4", "label": "Дизайн №4 (Разный шоколад с ажурами и декором)"},
                 ]
             }
         ]
@@ -415,9 +416,14 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["decor"] = selected_option["label"]
 
     context.user_data["step_index"] += 1
-
-    if context.user_data["step_index"] < len(custom_steps or product["steps"]):
+    
+    steps = context.user_data.get("custom_steps")
+    if not steps:
+        steps = product["steps"]
+    
+    if context.user_data["step_index"] < len(steps):
         await show_step(query, context, product)
+
     else:
         context.user_data["qty"] = 1
         context.user_data["state"] = "WAIT_METHOD"
