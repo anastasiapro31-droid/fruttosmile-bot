@@ -25,7 +25,7 @@ from google.oauth2.service_account import Credentials
 BOT_TOKEN = "8539880271:AAHlIoQUbX5Mz-HW3jxKzSWlr7iXX5YgYF8"           # ← обязательно замени
 ADMIN_CHAT_ID = 1165444045        # ← ID админа
 
-RETAILCRM_URL = https://xtv17101986.retailcrm.ru"  # ← замени
+RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени
 RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"                # ← вставь реальный ключ
 
 TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← замени на реальную
