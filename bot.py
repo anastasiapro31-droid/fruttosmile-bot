@@ -729,7 +729,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_order_preview(update, context):
     d = context.user_data
-    total = d.get('price', 0) * d.get('qty', 0) + d.get('delivery_fee', 0)
+    total = d.get('price', 0) * d.get('qty', 1) + d.get('delivery_fee', 0)
 
     product_text = d.get('product', 'Не указано')
     box_type = d.get('box_type', '')
@@ -744,7 +744,7 @@ async def show_order_preview(update, context):
     text_order = (
         "📋 **Проверьте ваш заказ:**\n\n"
         f"📦 **Товар:**\n{full_text}\n"
-        f"🔢 Кол-во: {d.get('qty')}\n"
+        f"🔢 Кол-во: {d.get('qty', 1)}\n"
         f"💰 Сумма: {total} ₽\n"
         f"🚛 Способ получения: {d.get('method')}\n"
         f"🏠 Адрес: {d.get('address', '-')}\n"
@@ -789,7 +789,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["payment_method"] = "QR-оплата"
 
         d = context.user_data
-        total_items = d.get('price', 0) * d.get('qty', 0)
+        total_items = d.get('price', 0) * d.get('qty', 1)
         total_final = total_items + d.get('delivery_fee', 0)
 
         product_text = d.get('product', 'Не указано')
@@ -844,7 +844,17 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, status="Создан", skip_client_message=False):
     d = context.user_data
 
-    order_id = f"FS-{int(datetime.now().timestamp())}"
+    if orders_sheet:
+        try:
+            all_values = orders_sheet.get_all_values()
+            new_number = len(all_values)          # включает шапку → первый заказ = 1
+        except Exception as e:
+            logging.error(f"Ошибка при подсчёте строк в orders: {e}")
+            new_number = random.randint(1, 99999)
+    else:
+        new_number = random.randint(1, 99999)
+
+    order_id = f"FS-{str(new_number).zfill(5)}"
     context.user_data["order_id"] = order_id
 
     client_id = update.effective_user.id
@@ -853,7 +863,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
     username = update.effective_user.username
     context.user_data["username"] = username
 
-    total_items = d.get('price', 0) * d.get('qty', 0)
+    total_items = d.get('price', 0) * d.get('qty', 1)
     total_final = total_items + d.get('delivery_fee', 0)
 
     product_text = d.get('product', 'Не указано')
@@ -874,7 +884,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         f"━━━━━━━━━━━━━━━\n"
         f"🆔 ID заказа: {order_id}\n"
         f"📦 Товар:\n{full_product_text}\n"
-        f"🔢 Кол-во: {d.get('qty')}\n"
+        f"🔢 Кол-во: {d.get('qty', 1)}\n"
         f"💰 ИТОГО: {total_final} ₽\n"
         f"👤 Клиент: {d.get('name') or '—'}\n"
         f"📞 Тел: {d.get('phone') or '—'}\n"
@@ -887,10 +897,10 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         f"━━━━━━━━━━━━━━━"
     )
 
-    username = context.user_data.get("username")
-    contact_button = []
-    if username:
-        contact_button = [[InlineKeyboardButton("💬 Написать клиенту", url=f"https://t.me/{username}")]]
+    # Кнопка всегда открывает профиль по ID (работает даже без username)
+    contact_button = [[InlineKeyboardButton("💬 Открыть профиль", url=f"tg://user?id={client_id}")]]
+
+    method = d.get("method", "").strip()
 
     if status == "Ожидает оплаты":
         admin_kb = InlineKeyboardMarkup(
@@ -898,29 +908,30 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
                 [InlineKeyboardButton("💳 Подтвердить оплату", callback_data=f"paid_{order_id}")]
             ]
         )
-    elif status == "Оплачен":
+
+    elif status == "Создан":
         admin_kb = InlineKeyboardMarkup(
             contact_button + [
                 [InlineKeyboardButton("✅ Принять заказ", callback_data=f"accept_{order_id}")]
             ]
         )
+
+    elif method == "Самовывоз":
+        admin_kb = InlineKeyboardMarkup(
+            contact_button + [
+                [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
+                [InlineKeyboardButton("✅ Выдан клиенту", callback_data=f"picked_{order_id}")]
+            ]
+        )
+
     else:
-        method = d.get("method", "").strip()
-        if method == "Самовывоз":
-            admin_kb = InlineKeyboardMarkup(
-                contact_button + [
-                    [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
-                    [InlineKeyboardButton("✅ Выдан клиенту", callback_data=f"picked_{order_id}")]
-                ]
-            )
-        else:
-            admin_kb = InlineKeyboardMarkup(
-                contact_button + [
-                    [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
-                    [InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")],
-                    [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
-                ]
-            )
+        admin_kb = InlineKeyboardMarkup(
+            contact_button + [
+                [InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")],
+                [InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")],
+                [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
+            ]
+        )
 
     photo = d.get('product_photo')
 
@@ -955,7 +966,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
                 d.get('name', ''),
                 d.get('phone', ''),
                 full_product_text,
-                d.get('qty'),
+                d.get('qty', 1),
                 total_final,
                 d.get('method'),
                 d.get('address', '-'),
@@ -970,7 +981,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         f"✨ **Заказ оформлен успешно!** ✨\n\n"
         f"🆔 **ID заказа:** {order_id}\n\n"
         f"📦 **Товар:**\n{full_product_text}\n"
-        f"🔢 Количество: {d.get('qty')}\n"
+        f"🔢 Количество: {d.get('qty', 1)}\n"
         f"🚛 Способ: {d.get('method')}\n"
         f"📅 Дата: {d.get('date') or 'не указана'}\n"
         f"⏰ Время: {d.get('delivery_time') or 'не указано'}\n\n"
@@ -991,6 +1002,12 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
 
     data = query.data
+
+    if context.user_data.get("last_action") == data:
+        await query.answer("Статус уже установлен", show_alert=True)
+        return
+
+    context.user_data["last_action"] = data
 
     if data == "completed":
         await query.answer("Статус уже установлен", show_alert=True)
@@ -1014,27 +1031,38 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     client_id = None
     order_method = None
+    row_index = None
 
     if orders_sheet:
         try:
             records = orders_sheet.get_all_records()
-            for row in records:
+            for idx, row in enumerate(records):
                 if row.get("ID заказа") == order_id:
-                    client_id_raw = row.get("telegram_id") or row.get("Telegram ID")
+                    # Проверка текущего статуса — защита от повторного нажатия
+                    current_status = row.get("Статус", "").strip()
+                    if current_status == new_status:
+                        await query.answer("Этот статус уже установлен", show_alert=True)
+                        return
+
+                    client_id_raw = row.get("telegram_id")
                     if client_id_raw is not None:
                         try:
                             client_id = int(float(client_id_raw))
                         except (ValueError, TypeError):
                             logging.warning(f"Не удалось преобразовать telegram_id: {client_id_raw}")
-                            client_id = None
 
                     order_method_raw = row.get("Способ", "")
                     order_method = order_method_raw.strip() if order_method_raw else ""
-                    row_index = records.index(row) + 2
-                    orders_sheet.update_cell(row_index, 12, new_status)
+
+                    row_index = idx + 2  # +2 потому что get_all_records() без заголовка, а индексы начинаются с 1
                     break
+
+            # Обновляем статус только если нашли строку и статус другой
+            if row_index:
+                orders_sheet.update_cell(row_index, 12, new_status)
+
         except Exception as e:
-            logging.error(f"Ошибка чтения/обновления таблицы: {e}")
+            logging.error(f"Ошибка работы с таблицей в order_status_handler: {e}")
 
     if client_id:
         if action == "accept":
@@ -1042,10 +1070,10 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 chat_id=client_id,
                 text="✅ Ваш заказ принят!\n\n🍓 Мы начали готовить ваш заказ.\nОжидайте уведомление о готовности 💝"
             )
-        if action == "ready":
+        elif action == "ready":
             await context.bot.send_message(
                 chat_id=client_id,
-                text="🍳 Ваш заказ готов и передаётся в доставку / ожидает выдачи 💝"
+                text="🍓 Ваш заказ готов!\n\nМожно забирать или ожидать курьера 💝"
             )
         elif action == "sent":
             await context.bot.send_message(
@@ -1105,16 +1133,21 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     elif action in ["done", "picked"]:
         final_text = "✅ Заказ выдан клиенту" if action == "picked" else "✅ Заказ доставлен"
+    
         try:
             if query.message.caption:
                 await query.edit_message_caption(
                     caption=f"{query.message.caption}\n\n{final_text}",
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(final_text, callback_data="completed")]])
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton(final_text, callback_data="completed")]
+                    ])
                 )
             else:
                 await query.edit_message_text(
                     text=f"{query.message.text}\n\n{final_text}",
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(final_text, callback_data="completed")]])
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton(final_text, callback_data="completed")]
+                    ])
                 )
         except Exception as e:
             logging.error(f"Ошибка редактирования сообщения: {e}")
@@ -1248,7 +1281,7 @@ async def handle_payment_screenshot(update: Update, context: ContextTypes.DEFAUL
 
     await context.bot.send_message(
         chat_id=ADMIN_CHAT_ID,
-        text=f"📸 Клиент {user.full_name} отправил чек.\nTelegram ID: {user.id}"
+        text=f"📸 Клиент {user.full_name} отправил чек.\nTelegram: @{user.username or 'нет'}\nID: {user.id}"
     )
 
     await context.bot.forward_message(
