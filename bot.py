@@ -188,11 +188,10 @@ PRODUCTS = {
 # ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 
 def clear_order_data(context):
-    name = context.user_data.get("name")
-    phone = context.user_data.get("phone")
+    keys_to_keep = ["name", "phone"]
+    new_data = {k: v for k, v in context.user_data.items() if k in keys_to_keep}
     context.user_data.clear()
-    if name: context.user_data["name"] = name
-    if phone: context.user_data["phone"] = phone
+    context.user_data.update(new_data)
 
 # ==================== ОБРАБОТЧИКИ ====================
 
@@ -491,7 +490,7 @@ async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['state'] = 'WAIT_DATE'
             try: await query.message.delete()
             except: pass
-            await query.message.chat.send_message("📅 Укажите дату доставки в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
+            await query.message.chat.send_message("📅 Укажите дату доставки в формате ДД.ММ.ГГГГ\nПример: 25.01.2026")
 
     elif query.data == "main_menu":
         clear_order_data(context)
