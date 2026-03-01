@@ -1038,7 +1038,7 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             logging.error(f"Ошибка чтения/обновления таблицы: {e}")
 
     if client_id:
-         if action == "accept":
+        if action == "accept":
             await context.bot.send_message(
                 chat_id=client_id,
                 text="✅ Ваш заказ принят!\n\n🍓 Мы начали готовить ваш заказ.\nОжидайте уведомление о готовности 💝"
