@@ -269,6 +269,7 @@ async def product_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "product_key": product_key,
         "step_index": 0
     })
+    context.user_data["product"] = product["name"]
 
     if product_key == "choco":
         context.user_data["product_photo"] = None
@@ -623,9 +624,9 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     time_map = {
-        "time_9_12": "9:00–12:00",
-        "time_12_16": "12:00–16:00",
-        "time_16_20": "16:00–20:00"
+        "time_9_13": "9:00–13:00",
+        "time_13_17": "13:00–17:00",
+        "time_17_21": "17:00–21:00"
     }
 
     selected_time = time_map.get(query.data)
@@ -674,7 +675,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if state == 'WAIT_ADDRESS':
         context.user_data['address'] = text
         context.user_data['state'] = 'WAIT_DATE'
-        await update.message.reply_text("📅 Укажите дату доставки/самовывоза в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
+        await update.message.reply_text("📅 Укажите дату доставки/самовывоза в формате ДД.ММ.ГГГГ\nПример: 25.01.2026")
 
     elif state == 'WAIT_DATE':
         try:
@@ -687,16 +688,16 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['state'] = 'WAIT_TIME'
 
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("9:00–12:00", callback_data="time_9_12")],
-                [InlineKeyboardButton("12:00–16:00", callback_data="time_12_16")],
-                [InlineKeyboardButton("16:00–20:00", callback_data="time_16_20")],
+                [InlineKeyboardButton("9:00–13:00", callback_data="time_9_13")],
+                [InlineKeyboardButton("13:00–17:00", callback_data="time_13_17")],
+                [InlineKeyboardButton("17:00–21:00", callback_data="time_17_21")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_address")]
             ])
 
             await update.message.reply_text("⏰ Выберите интервал:", reply_markup=kb)
 
         except ValueError:
-            await update.message.reply_text("Введите дату в формате ДД.ММ.ГГГГ\nПример: 25.12.2025")
+            await update.message.reply_text("Введите дату в формате ДД.ММ.ГГГГ\nПример: 25.01.2026")
 
     elif state == 'WAIT_COMMENT':
         context.user_data['comment'] = text
@@ -1037,6 +1038,11 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             logging.error(f"Ошибка чтения/обновления таблицы: {e}")
 
     if client_id:
+         if action == "accept":
+            await context.bot.send_message(
+                chat_id=client_id,
+                text="✅ Ваш заказ принят!\n\n🍓 Мы начали готовить ваш заказ.\nОжидайте уведомление о готовности 💝"
+            )
         if action == "ready":
             await context.bot.send_message(
                 chat_id=client_id,
