@@ -983,24 +983,37 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         )
 
     if orders_sheet:
-        try:
-            orders_sheet.append_row([
-                order_id,
-                datetime.now().strftime("%d.%m.%Y %H:%M"),
-                client_id,
-                d.get('name', ''),
-                d.get('phone', ''),
-                full_product_text,
-                d.get('qty', 1),
-                total_final,
-                d.get('method'),
-                d.get('address', '-'),
-                f"{d.get('date', '-')} {d.get('delivery_time', '-')}",
-                status
-            ])
-            print(f"Заказ {order_id} записан в таблицу")
-        except Exception as e:
-            logging.error(f"Ошибка записи заказа: {e}")
+        success = False
+    
+        for i in range(3):   # пробуем записать 3 раза
+            try:
+                orders_sheet.append_row([
+                    order_id,
+                    datetime.now().strftime("%d.%m.%Y %H:%M"),
+                    client_id,
+                    d.get('name', ''),
+                    d.get('phone', ''),
+                    full_product_text,
+                    d.get('qty', 1),
+                    total_final,
+                    d.get('method'),
+                    d.get('address', '-'),
+                    f"{d.get('date', '-')} {d.get('delivery_time', '-')}",
+                    status
+                ])
+    
+                print(f"Заказ {order_id} записан в таблицу")
+                success = True
+                break
+    
+            except Exception as e:
+                logging.error(f"Ошибка записи заказа: {e}")
+    
+        if not success:
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=f"❌ ОШИБКА: заказ {order_id} НЕ записался в таблицу!"
+            )
 
     payment_text = (
         f"✨ **Заказ оформлен успешно!** ✨\n\n"
