@@ -148,11 +148,12 @@ PRODUCTS = {
                 ]
             },
             {
-                "title": "Выберите декор (1–4):",
+                "title": "Выберите дизайн
+                :",
                 "options": [
-                    {"id": "1", "label": "Дизайн №1 (Разный шок. с ажурами)"},
-                    {"id": "2", "label": "Дизайн №2 (Молочный шок. с посыпками и свежей ягодой)"},
-                    {"id": "3", "label": "Дизайн №3 (Разный шок. с ажурами и голубикой)"},
+                    {"id": "1", "label": "Дизайн №1 (с ажурами)"},
+                    {"id": "2", "label": "Дизайн №2 (с посыпками и свежей ягодой)"},
+                    {"id": "3", "label": "Дизайн №3 (с ажурами и голубикой)"},
                     {"id": "4", "label": "Дизайн №4 (Молочно-белый с голубикой)"},
                 ]
             }
@@ -173,12 +174,12 @@ PRODUCTS = {
                 ]
             },
             {
-                "title": "Выберите декор (1–4):",
+                "title": "Выберите дизайн:",
                 "options": [
-                    {"id": "1", "label": "Дизайн №1 (Разный шок. с полосками и сердечками)"},
-                    {"id": "2", "label": "Дизайн №2 (Разный шок. с полосками)"},
-                    {"id": "3", "label": "Дизайн №3 (Молочный с посыпками/полосками и ягодами)"},
-                    {"id": "4", "label": "Дизайн №4 (Разный шок. с ажурами и декором)"},
+                    {"id": "1", "label": "Дизайн №1 (с полосками и сердечками)"},
+                    {"id": "2", "label": "Дизайн №2 (с полосками)"},
+                    {"id": "3", "label": "Дизайн №3 (с посыпками/полосками и ягодами)"},
+                    {"id": "4", "label": "Дизайн №4 (с ажурами и декором)"},
                 ]
             }
         ]
@@ -348,7 +349,7 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if product_key == "choco" and step_index == 0:
         if selected_id in ("square", "round"):
             if selected_id == "square":
-                context.user_data["product_photo"] = "http://fruttosmile.su/wp-content/uploads/2026/02/image-23-02-26-11-11-2.jpeg"
+                context.user_data["product_photo"] = "http://fruttosmile.su/wp-content/uploads/2026/02/image-27-02-26-08-49.jpeg"
                 context.user_data["box_type"] = "Квадратная"
                 custom_steps = [
                     {"title": "Выберите размер:", "options": [
