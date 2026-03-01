@@ -878,6 +878,9 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         full_product_text += f"\nРазмер: {size}"
     if decor:
         full_product_text += f"\nДизайн: {decor}"
+        
+    client_name = d.get("name") or update.effective_user.full_name
+    client_phone = d.get("phone") or "Не указан"
 
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
@@ -886,8 +889,8 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         f"📦 Товар:\n{full_product_text}\n"
         f"🔢 Кол-во: {d.get('qty', 1)}\n"
         f"💰 ИТОГО: {total_final} ₽\n"
-        f"👤 Клиент: {d.get('name') or '—'}\n"
-        f"📞 Тел: {d.get('phone') or '—'}\n"
+        f"👤 Клиент: {client_name}\n"
+        f"📞 Тел: {client_phone}\n"
         f"🚛 Способ: {d.get('method')}\n"
         f"🏠 Адрес: {d.get('address', '-')}\n"
         f"📅 Дата: {d.get('date') or 'не указана'}\n"
@@ -1118,18 +1121,28 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             ])
         await query.edit_message_reply_markup(reply_markup=kb)
 
-    elif action in ["ready", "sent"]:
-        remaining = []
-        if action != "ready":
-            remaining.append([InlineKeyboardButton("🍳 Заказ готов", callback_data=f"ready_{order_id}")])
-        if action != "sent" and order_method != "Самовывоз":
-            remaining.append([InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")])
+    elif action == "ready":
+    
         if order_method == "Самовывоз":
-            remaining.append([InlineKeyboardButton("✅ Выдан клиенту", callback_data=f"picked_{order_id}")])
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Выдан клиенту", callback_data=f"picked_{order_id}")]
+            ])
         else:
-            remaining.append([InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")])
-        if remaining:
-            await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(remaining))
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")],
+                [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
+            ])
+    
+        await query.edit_message_reply_markup(reply_markup=kb)
+    
+    
+    elif action == "sent":
+    
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
+        ])
+    
+        await query.edit_message_reply_markup(reply_markup=kb)
 
     elif action in ["done", "picked"]:
         final_text = "✅ Заказ выдан клиенту" if action == "picked" else "✅ Заказ доставлен"
