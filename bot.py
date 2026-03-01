@@ -141,20 +141,19 @@ PRODUCTS = {
             {
                 "title": "Выберите размер:",
                 "options": [
-                    {"id": "17", "label": "17–19 ягод — 4190₽", "price": 4190},
-                    {"id": "20", "label": "20–23 ягоды — 4890₽", "price": 4890},
-                    {"id": "25", "label": "25–27 ягод — 5590₽", "price": 5590},
-                    {"id": "30", "label": "30–33 ягоды — 5990₽", "price": 5990},
-                    {"id": "35", "label": "35–37 ягод — 6990₽", "price": 6990},
+                    {"id": "15", "label": "15–16 ягод — 3990₽", "price": 3990},
+                    {"id": "20", "label": "20–23 ягоды — 4990₽", "price": 4990},
+                    {"id": "25", "label": "25–27 ягод — 5990₽", "price": 5990},
+                    {"id": "30", "label": "30–35 ягоды — 6990₽", "price": 6990},
                 ]
             },
             {
                 "title": "Выберите декор (1–4):",
                 "options": [
-                    {"id": "1", "label": "1 — Дизайн №1 (Разный шоколад с ажурами)"},
-                    {"id": "2", "label": "2 — Дизайн №2 (Молочный шоколад с посыпками и свежей ягодой)"},
-                    {"id": "3", "label": "3 — Дизайн №3 (Разный шоколад с ажурами и голубикой)"},
-                    {"id": "4", "label": "4 — Дизайн №4 (Молочно-белый с голубикой)"},
+                    {"id": "1", "label": "Дизайн №1 (Разный шок. с ажурами)"},
+                    {"id": "2", "label": "Дизайн №2 (Молочный шок. с посыпками и свежей ягодой)"},
+                    {"id": "3", "label": "Дизайн №3 (Разный шок. с ажурами и голубикой)"},
+                    {"id": "4", "label": "Дизайн №4 (Молочно-белый с голубикой)"},
                 ]
             }
         ]
@@ -166,20 +165,20 @@ PRODUCTS = {
             {
                 "title": "Выберите размер:",
                 "options": [
-                    {"id": "12", "label": "10-12 ягод — 3190₽", "price": 3190},
-                    {"id": "16", "label": "15-17 ягод — 4390₽", "price": 4390},
-                    {"id": "20", "label": "18-20 ягод — 4790₽", "price": 4790},
-                    {"id": "25", "label": "23-25 ягод — 5290₽", "price": 5290},
-                    {"id": "35", "label": "33-35 ягод — 7290₽", "price": 7290},
+                    {"id": "10", "label": "9-10 (мелкая до 12шт)  ягод — 3090₽", "price": 3190},
+                    {"id": "16", "label": "15-17 ягод — 4490₽", "price": 4490},
+                    {"id": "20", "label": "18-20 ягод — 4990₽", "price": 4990},
+                    {"id": "25", "label": "23-25 ягод — 5990₽", "price": 5990},
+                    {"id": "35", "label": "33-35 ягод — 7490₽", "price": 7490},
                 ]
             },
             {
                 "title": "Выберите декор (1–4):",
                 "options": [
-                    {"id": "1", "label": "Дизайн №1 (Разный шоколад с полосками и сердечками)"},
-                    {"id": "2", "label": "Дизайн №2 (Разный шоколад с полосками)"},
+                    {"id": "1", "label": "Дизайн №1 (Разный шок. с полосками и сердечками)"},
+                    {"id": "2", "label": "Дизайн №2 (Разный шок. с полосками)"},
                     {"id": "3", "label": "Дизайн №3 (Молочный с посыпками/полосками и ягодами)"},
-                    {"id": "4", "label": "Дизайн №4 (Разный шоколад с ажурами и декором)"},
+                    {"id": "4", "label": "Дизайн №4 (Разный шок. с ажурами и декором)"},
                 ]
             }
         ]
@@ -353,16 +352,18 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 context.user_data["box_type"] = "Квадратная"
                 custom_steps = [
                     {"title": "Выберите размер:", "options": [
-                        {"id": "9",  "label": "9 ягод — 1990₽",  "price": 1990},
-                        {"id": "12", "label": "12 ягод — 2590₽", "price": 2590},
-                        {"id": "16", "label": "16 ягод — 3390₽", "price": 3390},
-                        {"id": "20", "label": "20 ягод — 4190₽", "price": 4190},
+                        {"id": "4",  "label": "4 ягод — 990₽",  "price": 990},
+                        {"id": "9",  "label": "9 ягод — 2090₽",  "price": 2090},
+                        {"id": "12", "label": "12 ягод — 2790₽", "price": 2790},
+                        {"id": "15", "label": "15 ягод — 3390₽", "price": 3390},
+                        {"id": "16", "label": "16 ягод — 3590₽", "price": 3590},
+                        {"id": "20", "label": "20 ягод — 4390₽", "price": 4390},
                     ]},
                     {"title": "Выберите дизайн:", "options": [
-                        {"id": "1", "label": "Дизайн №1 (Молочный шоколад с полосками / посыпками)"},
-                        {"id": "2", "label": "Дизайн №2 (Разный шоколад с полосками в тон)"},
-                        {"id": "3", "label": "Дизайн №3 (Разный шоколад с посыпками)"},
-                        {"id": "4", "label": "Дизайн №4 (Разный шоколад с полосками / посыпками)"},
+                        {"id": "1", "label": "Дизайн №1 (Полоски / посыпки)"},
+                        {"id": "2", "label": "Дизайн №2 (Полоски в тон)"},
+                        {"id": "3", "label": "Дизайн №3 (Посыпки)"},
+                        {"id": "4", "label": "Дизайн №4 (Полоски / посыпки)"},
                     ]}
                 ]
             else:
@@ -376,10 +377,10 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         {"id": "berry","label": "Бокс из свежих ягод — 4390₽", "price": 4390},
                     ]},
                     {"title": "Выберите дизайн:", "options": [
-                        {"id": "1", "label": "Дизайн 1 (Молочно-белый с полосками / посыпками / шоколадками)"},
-                        {"id": "2", "label": "Дизайн 2 (Разный шоколад с полосками / посыпками)"},
-                        {"id": "3", "label": "Дизайн 3 (Молочно-белый с полосками и голубикой)"},
-                        {"id": "4", "label": "Бокс «Ягодная поляна» (Ассорти ягод без шоколада)"},
+                        {"id": "1", "label": "Дизайн 1 (С полосками/посыпками/шоколадками)"},
+                        {"id": "2", "label": "Дизайн 2 (С полосками/посыпками)"},
+                        {"id": "3", "label": "Дизайн 3 (С полосками и голубикой)"},
+                        {"id": "4", "label": "Бокс «Ягодная поляна» (без шоколада)"},
                     ]}
                 ]
 
@@ -390,6 +391,7 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["product"] = f"{product['name']} ({context.user_data['box_type']})"
             
             await show_step(query, context, product)
+            return
 
     custom_steps = context.user_data.get("custom_steps")
     if custom_steps:
@@ -989,6 +991,14 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.answer()
 
     data = query.data
+
+    if data == "completed":
+        await query.answer("Статус уже установлен", show_alert=True)
+        return
+
+    if "_" not in data:
+        return
+
     action, order_id = data.split("_", 1)
 
     status_map = {
@@ -1047,13 +1057,14 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             )
 
     if action in ["done", "picked"] and client_id:
+        delay = 24 + random.randint(0, 6)
         context.application.job_queue.run_once(
             send_review_request,
-            when=timedelta(hours=12),
+            when=timedelta(hours=delay),
             data={"chat_id": client_id},
             name=f"review_{order_id}"
         )
-        logging.info(f"Запланирован запрос оценки через 12 ч для {client_id} (заказ {order_id})")
+        logging.info(f"Запланирован запрос оценки через {delay} часов для {client_id} (заказ {order_id})")
 
     if action == "paid":
         await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup([
@@ -1088,7 +1099,21 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(remaining))
 
     elif action in ["done", "picked"]:
-        await query.edit_message_reply_markup(reply_markup=None)
+        final_text = "✅ Заказ выдан клиенту" if action == "picked" else "✅ Заказ доставлен"
+        try:
+            if query.message.caption:
+                await query.edit_message_caption(
+                    caption=f"{query.message.caption}\n\n{final_text}",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(final_text, callback_data="completed")]])
+                )
+            else:
+                await query.edit_message_text(
+                    text=f"{query.message.text}\n\n{final_text}",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(final_text, callback_data="completed")]])
+                )
+        except Exception as e:
+            logging.error(f"Ошибка редактирования сообщения: {e}")
+            await query.edit_message_reply_markup(reply_markup=None)
 
     context.user_data.pop("state", None)
 
@@ -1115,6 +1140,8 @@ async def send_review_request(context: ContextTypes.DEFAULT_TYPE):
 async def rating_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    await query.edit_message_reply_markup(reply_markup=None)
 
     rating = int(query.data.replace("rate_", ""))
     context.user_data["last_rating"] = rating
@@ -1257,7 +1284,7 @@ def main():
     app.add_handler(CallbackQueryHandler(confirm_district_handler, pattern="^confirm_district$"))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-    app.add_handler(CallbackQueryHandler(order_status_handler, pattern="^(paid|accept|ready|sent|done|picked)_"))
+    app.add_handler(CallbackQueryHandler(order_status_handler, pattern="^(paid|accept|ready|sent|done|picked)_|^completed$"))
     app.add_handler(CallbackQueryHandler(repeat_handler, pattern="^repeat_"))
     app.add_handler(MessageHandler(filters.PHOTO, handle_payment_screenshot))
 
