@@ -254,21 +254,30 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def product_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
- 
+
+    # сохраняем имя и телефон
+    saved_name = context.user_data.get("name")
+    saved_phone = context.user_data.get("phone")
+
     product_key = query.data.replace("prod_", "")
     product = PRODUCTS.get(product_key)
- 
+
     if not product:
         await query.message.reply_text("Товар не найден.")
         return
- 
+
     clear_order_data(context)
- 
+
+    # возвращаем имя и телефон
+    if saved_name:
+        context.user_data["name"] = saved_name
+    if saved_phone:
+        context.user_data["phone"] = saved_phone
+
     context.user_data.update({
         "product_key": product_key,
         "step_index": 0
     })
-    context.user_data["product"] = product["name"]
  
     if product_key == "choco":
         context.user_data["product_photo"] = None
@@ -888,8 +897,8 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
     if decor:
         full_product_text += f"\nДизайн: {decor}"
         
-    client_name = d.get("name", "Клиент")
-    client_phone = d.get("phone", "Не указан")
+    client_name = d.get("name") or "Клиент"
+    client_phone = d.get("phone") or "Не указан"
  
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
