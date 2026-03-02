@@ -225,6 +225,22 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['name'] = name
     context.user_data['phone'] = phone
 
+    # запись пользователя в Google таблицу
+    if users_sheet:
+        try:
+            users_sheet.append_row([
+                update.effective_user.id,
+                update.effective_user.username,
+                name,
+                phone,
+                0,
+                datetime.now().strftime("%d.%m.%Y %H:%M"),
+                "",
+                "false"
+            ])
+        except Exception as e:
+            logging.error(f"Ошибка записи пользователя: {e}")
+
     await update.message.reply_text(
         f"Спасибо, {name}! Вы зарегистрированы ✅\n"
         "Теперь можете выбирать товары.",
