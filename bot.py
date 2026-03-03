@@ -837,7 +837,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💵 **Итоговая сумма: {total_final} ₽**\n"
             f"({total_items} ₽ за товар + {d.get('delivery_fee', 0)} ₽ доставка)\n\n"
             f"**Оплата:**\n"
-            f"• Оплатите по [ссылке на QR](https://qr.nspk.ru/BS1A0054EC7LHJ358M29KSAKOJJ638N1)\n\n"
+            f"• Оплатите по [ссылке на QR](https://pay.alfabank.ru/sc/syXfcnoxVCDYcYsx)\n\n"
             f"📸 После оплаты отправьте сюда скриншот чека."
         )
 
