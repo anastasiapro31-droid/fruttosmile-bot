@@ -26,7 +26,7 @@ BOT_TOKEN = "8539880271:AAHlIoQUbX5Mz-HW3jxKzSWlr7iXX5YgYF8"           # ← о�
 ADMIN_CHAT_ID = 1165444045        # ← ID админа
 
 RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"  # ← замени
-RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"                # ← вставь реальный ключ
+RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"                      # ← вставь реальный ключ
 
 TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"  # ← замени на реальную
 
@@ -185,17 +185,39 @@ PRODUCTS = {
     }
 }
 
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+# ================= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =================
 
 def clear_order_data(context):
     keys_to_keep = ["name", "phone"]
     new_data = {k: v for k, v in context.user_data.items() if k in keys_to_keep}
     context.user_data.clear()
     context.user_data.update(new_data)
+    context.user_data.pop("order_created", None)
+    context.user_data.pop("custom_steps", None)      # ← очищаем старые шаги
 
-# ==================== ОБРАБОТЧИКИ ====================
+# ================= GRACEFUL SHUTDOWN =================
+def shutdown(signum, frame):
+    print("Получен сигнал остановки. Завершаем бота...")
+    sys.exit(0)
+
+# ================= ОБРАБОТЧИКИ =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    # поиск только в колонке ID (1)
+    if users_sheet:
+        try:
+            cell = users_sheet.find(str(user_id), in_column=1)
+            if cell:
+                row = cell.row
+                name_cell = users_sheet.cell(row, 3)
+                phone_cell = users_sheet.cell(row, 4)
+                context.user_data["name"]  = name_cell.value.strip() if name_cell.value else None
+                context.user_data["phone"] = phone_cell.value.strip() if phone_cell.value else None
+        except Exception as e:
+            logging.error(f"Ошибка поиска пользователя в таблице: {e}")
+
     if context.user_data.get('phone'):
         await show_main_menu(update, context)
         return
@@ -225,12 +247,11 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['name'] = name
     context.user_data['phone'] = phone
 
-    # запись пользователя в Google таблицу
     if users_sheet:
         try:
             users_sheet.append_row([
                 update.effective_user.id,
-                update.effective_user.username,
+                update.effective_user.username or "",
                 name,
                 phone,
                 0,
@@ -270,6 +291,19 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def product_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    if not context.user_data.get("phone"):
+        keyboard = ReplyKeyboardMarkup(
+            [[KeyboardButton("📱 Поделиться номером для регистрации", request_contact=True)]],
+            resize_keyboard=True,
+            one_time_keyboard=True
+        )
+
+        await query.message.reply_text(
+            "📱 Для оформления заказа сначала отправьте номер телефона.",
+            reply_markup=keyboard
+        )
+        return
 
     saved_name = context.user_data.get("name")
     saved_phone = context.user_data.get("phone")
@@ -789,7 +823,7 @@ async def show_order_preview(update, context):
         [InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")]
     ])
 
-    msg = update.message or update.callback_query.message
+    msg = update.effective_message
     await msg.reply_text(text_order, reply_markup=kb, parse_mode="Markdown")
 
 async def show_payment_options(update, context):
@@ -808,7 +842,7 @@ async def show_payment_options(update, context):
             [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_method")]
         ])
 
-    msg = update.message or update.callback_query.message
+    msg = update.effective_message
     await msg.reply_text("💳 Выберите способ оплаты:", reply_markup=kb)
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -874,15 +908,37 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, status="Создан", skip_client_message=False):
     d = context.user_data
 
+    if d.get("order_created"):
+        return
+    d["order_created"] = True
+
+    if not d.get("price") or d.get("price") <= 0:
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text="⚠️ Ошибка: заказ без цены. Пользователь не выбрал товар корректно."
+        )
+        msg = update.effective_message
+        if msg:
+            await msg.reply_text("⚠️ Произошла ошибка оформления заказа.\nПожалуйста оформите заказ заново.")
+        return
+
     logging.info(f"ORDER DATA: {d}")
 
     if orders_sheet:
         try:
-            all_values = orders_sheet.get_all_values()
-            new_number = len(all_values)          # включает шапку → первый заказ = 1
+            col = orders_sheet.col_values(1)
+            last_number = 0
+            for v in reversed(col):
+                if v.startswith("FS-"):
+                    try:
+                        last_number = int(v.replace("FS-", ""))
+                        break
+                    except:
+                        pass
+            new_number = last_number + 1
         except Exception as e:
-            logging.error(f"Ошибка при подсчёте строк в orders: {e}")
-            new_number = random.randint(1, 99999)
+            logging.error(f"Ошибка при генерации ID: {e}")
+            new_number = random.randint(10000, 99999)
     else:
         new_number = random.randint(1, 99999)
 
@@ -906,27 +962,28 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
     decor = d.get("decor")
 
     parts = [product_name]
-
-    if box_type:
-        parts.append(f"Коробка: {box_type}")
-
-    if size:
-        parts.append(f"Размер: {size}")
-
-    if decor:
-        parts.append(f"Дизайн: {decor}")
+    if box_type: parts.append(f"Коробка: {box_type}")
+    if size:     parts.append(f"Размер: {size}")
+    if decor:    parts.append(f"Дизайн: {decor}")
 
     full_product_text = "\n".join(parts)
 
-    client_name = d.get("name") or "Клиент"
-    client_phone = d.get("phone") or "Не указан"
+    client_name = d.get("name")
+    client_phone = d.get("phone")
+
+    if not client_name or not client_phone:
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text="⚠️ Заказ без данных клиента. Проверьте регистрацию."
+        )
+        return
 
     summary = (
         f"🔔 НОВЫЙ ЗАКАЗ!\n"
         f"━━━━━━━━━━━━━━━\n"
         f"🆔 ID заказа: {order_id}\n"
         f"📦 Товар:\n{full_product_text}\n"
-        f"🔢 Кол-во: {d.get('qty', 1)}\n"
+        f"🔢 Кол-во: {qty}\n"
         f"💰 ИТОГО: {total_final} ₽\n"
         f"👤 Клиент: {client_name}\n"
         f"📞 Тел: {client_phone}\n"
@@ -1000,8 +1057,8 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
 
     if orders_sheet:
         success = False
-    
-        for i in range(3):   # пробуем записать 3 раза
+
+        for i in range(3):
             try:
                 orders_sheet.append_row([
                     order_id,
@@ -1017,18 +1074,40 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
                     f"{d.get('date', '-')} {d.get('delivery_time', '-')}",
                     status
                 ])
-    
+
                 print(f"Заказ {order_id} записан в таблицу")
                 success = True
                 break
-    
+
             except Exception as e:
-                logging.error(f"Ошибка записи заказа: {e}")
-    
+                logging.error(f"Ошибка записи заказа (попытка {i+1}): {e}")
+
         if not success:
+            try:
+                backup_order = {
+                    "order_id": order_id,
+                    "date": datetime.now().strftime("%d.%m.%Y %H:%M"),
+                    "client_id": client_id,
+                    "name": d.get('name'),
+                    "phone": d.get('phone'),
+                    "product": full_product_text,
+                    "qty": d.get('qty', 1),
+                    "total": total_final,
+                    "method": d.get('method'),
+                    "address": d.get('address'),
+                    "delivery": f"{d.get('date')} {d.get('delivery_time')}",
+                    "status": status
+                }
+
+                with open("orders_backup.json", "a", encoding="utf-8") as f:
+                    f.write(json.dumps(backup_order, ensure_ascii=False) + "\n")
+
+            except Exception as e:
+                logging.error(f"Ошибка резервного сохранения: {e}")
+
             await context.bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
-                text=f"❌ ОШИБКА: заказ {order_id} НЕ записался в таблицу!"
+                text=f"❌ Google Sheets не ответил.\nЗаказ {order_id} сохранён в orders_backup.json"
             )
 
     payment_text = (
@@ -1047,8 +1126,8 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         [InlineKeyboardButton("🛍 Сделать ещё заказ", callback_data="main_menu")]
     ])
 
-    if not skip_client_message:
-        msg = update.callback_query.message if update.callback_query else update.message
+    msg = update.effective_message
+    if not skip_client_message and msg:
         await msg.reply_text(payment_text, parse_mode="Markdown", disable_web_page_preview=True, reply_markup=reply_markup)
 
 async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1089,30 +1168,29 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if orders_sheet:
         try:
-            records = orders_sheet.get_all_records()
-            for idx, row in enumerate(records):
-                if row.get("ID заказа") == order_id:
-                    # Проверка текущего статуса — защита от повторного нажатия
-                    current_status = row.get("Статус", "").strip()
-                    if current_status == new_status:
-                        await query.answer("Этот статус уже установлен", show_alert=True)
-                        return
+            cell = orders_sheet.find(order_id, in_column=1)
+            if cell:
+                row_index = cell.row
+                # получаем данные строки
+                row = orders_sheet.row_values(row_index)
+                current_status = row[11] if len(row) > 11 else ""  # колонка 12 — Статус (индекс 11)
 
-                    client_id_raw = row.get("telegram_id")
-                    if client_id_raw is not None:
-                        try:
-                            client_id = int(float(client_id_raw))
-                        except (ValueError, TypeError):
-                            logging.warning(f"Не удалось преобразовать telegram_id: {client_id_raw}")
+                if current_status.strip() == new_status:
+                    await query.answer("Этот статус уже установлен", show_alert=True)
+                    return
 
-                    order_method_raw = row.get("Способ", "")
-                    order_method = order_method_raw.strip() if order_method_raw else ""
+                # telegram_id — колонка 3 (индекс 2)
+                client_id_raw = row[2] if len(row) > 2 else None
+                if client_id_raw:
+                    try:
+                        client_id = int(float(client_id_raw))
+                    except:
+                        pass
 
-                    row_index = idx + 2  # +2 потому что get_all_records() без заголовка, а индексы начинаются с 1
-                    break
+                # Способ — колонка 9 (индекс 8)
+                order_method = row[8] if len(row) > 8 else ""
 
-            # Обновляем статус только если нашли строку и статус другой
-            if row_index:
+                # обновляем статус (12-я колонка = индекс 11)
                 orders_sheet.update_cell(row_index, 12, new_status)
 
         except Exception as e:
@@ -1173,7 +1251,6 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_reply_markup(reply_markup=kb)
 
     elif action == "ready":
-
         if order_method == "Самовывоз":
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("✅ Выдан клиенту", callback_data=f"picked_{order_id}")]
@@ -1183,16 +1260,12 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 [InlineKeyboardButton("🚚 Передан курьеру", callback_data=f"sent_{order_id}")],
                 [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
             ])
-
         await query.edit_message_reply_markup(reply_markup=kb)
 
-
     elif action == "sent":
-
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("✅ Доставлен", callback_data=f"done_{order_id}")]
         ])
-
         await query.edit_message_reply_markup(reply_markup=kb)
 
     elif action in ["done", "picked"]:
@@ -1356,12 +1429,7 @@ async def handle_payment_screenshot(update: Update, context: ContextTypes.DEFAUL
 
     await update.message.reply_text("✅ Чек отправлен менеджеру. Ожидайте подтверждения.")
 
-# ==================== GRACEFUL SHUTDOWN ====================
-def shutdown(signum, frame):
-    print("Получен сигнал остановки, завершаем polling...")
-    sys.exit(0)
-
-# ==================== MAIN ====================
+# ================= MAIN =================
 def main():
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
