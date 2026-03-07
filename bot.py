@@ -1388,12 +1388,6 @@ async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # защита от двойного нажатия
-    if context.user_data.get("confirm_clicked"):
-        return
-
-    context.user_data["confirm_clicked"] = True
-
     if query.data == "confirm_order":
         if context.user_data.get("state") != "WAIT_CONFIRM":
             await query.message.reply_text("❗ Сначала завершите оформление заказа.")
