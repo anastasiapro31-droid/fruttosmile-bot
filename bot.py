@@ -687,7 +687,6 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     time_map = {
-        "time_9_13": "9:00–13:00",
         "time_13_17": "13:00–17:00",
         "time_17_21": "17:00–21:00"
     }
@@ -751,7 +750,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['state'] = 'WAIT_TIME'
 
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("9:00–13:00", callback_data="time_9_13")],
                 [InlineKeyboardButton("13:00–17:00", callback_data="time_13_17")],
                 [InlineKeyboardButton("17:00–21:00", callback_data="time_17_21")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_address")]
