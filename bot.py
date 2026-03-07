@@ -790,6 +790,11 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("last_rating", None)
 
 async def show_order_preview(update, context):
+    if not context.user_data.get("price"):
+        await update.effective_message.reply_text(
+            "❗ Заказ устарел. Пожалуйста оформите заново."
+        )
+        return
     d = context.user_data
     total = d.get('price', 0) * d.get('qty', 1) + d.get('delivery_fee', 0)
 
@@ -910,7 +915,10 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
         return
     d["order_created"] = True
 
-    if not d.get("price"):
+    price = d.get("price", 0)
+    
+    if price <= 0:
+        
         await context.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
             text="⚠️ Ошибка: заказ без цены. Пользователь не выбрал товар корректно."
