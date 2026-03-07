@@ -911,7 +911,6 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
     d["order_created"] = True
 
     if not d.get("price"):
-    d["price"] = 0
         await context.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
             text="⚠️ Ошибка: заказ без цены. Пользователь не выбрал товар корректно."
