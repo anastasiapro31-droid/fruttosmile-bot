@@ -193,7 +193,8 @@ def clear_order_data(context):
     context.user_data.clear()
     context.user_data.update(new_data)
     context.user_data.pop("order_created", None)
-    context.user_data.pop("custom_steps", None)      # ← очищаем старые шаги
+    context.user_data.pop("custom_steps", None)
+    context.user_data.pop("confirm_clicked", None)   # сброс защиты от двойного клика
 
 # ================= GRACEFUL SHUTDOWN =================
 def shutdown(signum, frame):
@@ -205,7 +206,6 @@ def shutdown(signum, frame):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
-    # поиск только в колонке ID (1)
     if users_sheet:
         try:
             cell = users_sheet.find(str(user_id), in_column=1)
@@ -831,14 +831,13 @@ async def show_payment_options(update, context):
 
     if method == "Самовывоз":
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 Оплатить сейчас", callback_data="pay_online")],
+            [InlineKeyboardButton("💳 Оплатить по QR", callback_data="pay_online")],
             [InlineKeyboardButton("🏪 Оплатить при получении", callback_data="pay_pickup")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_method")]
         ])
-    else:
+    else:  # Доставка
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 Оплатить сейчас", callback_data="pay_online")],
-            [InlineKeyboardButton("💵 Оплатить курьеру (наличные)", callback_data="pay_courier")],
+            [InlineKeyboardButton("💳 Оплатить по QR", callback_data="pay_online")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_method")]
         ])
 
@@ -899,6 +898,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await finish_order(update, context)
 
     elif query.data == "pay_courier":
+        # Эта ветка больше не используется, но оставляем на всякий случай
         context.user_data["payment_method"] = "Оплата курьеру (наличные)"
         await query.message.reply_text(
             "💵 Оплата курьеру наличными.\nПожалуйста, подготовьте сумму без сдачи."
@@ -1171,15 +1171,13 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             cell = orders_sheet.find(order_id, in_column=1)
             if cell:
                 row_index = cell.row
-                # получаем данные строки
                 row = orders_sheet.row_values(row_index)
-                current_status = row[11] if len(row) > 11 else ""  # колонка 12 — Статус (индекс 11)
+                current_status = row[11] if len(row) > 11 else ""
 
                 if current_status.strip() == new_status:
                     await query.answer("Этот статус уже установлен", show_alert=True)
                     return
 
-                # telegram_id — колонка 3 (индекс 2)
                 client_id_raw = row[2] if len(row) > 2 else None
                 if client_id_raw:
                     try:
@@ -1187,10 +1185,8 @@ async def order_status_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                     except:
                         pass
 
-                # Способ — колонка 9 (индекс 8)
                 order_method = row[8] if len(row) > 8 else ""
 
-                # обновляем статус (12-я колонка = индекс 11)
                 orders_sheet.update_cell(row_index, 12, new_status)
 
         except Exception as e:
@@ -1391,6 +1387,12 @@ async def repeat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    # защита от двойного нажатия
+    if context.user_data.get("confirm_clicked"):
+        return
+
+    context.user_data["confirm_clicked"] = True
 
     if query.data == "confirm_order":
         if context.user_data.get("state") != "WAIT_CONFIRM":
