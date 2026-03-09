@@ -129,7 +129,7 @@ PRODUCTS = {
                 "title": "Выберите коробку:",
                 "options": [
                     {"id": "square", "label": "⬜ Квадратная коробка"},
-                  #  {"id": "round",  "label": "⭕ Круглая коробка"}
+                    {"id": "round",  "label": "⭕ Круглая коробка"}
                 ]
             }
         ]
@@ -274,8 +274,8 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🍓 Клубника в шоколаде", callback_data="prod_choco")],
-        #[InlineKeyboardButton("🎩 Шляпные коробки", callback_data="prod_hat")],
-        #[InlineKeyboardButton("❤️ Коробочки «Сердце»", callback_data="prod_heart")],
+        [InlineKeyboardButton("🎩 Шляпные коробки", callback_data="prod_hat")],
+        [InlineKeyboardButton("❤️ Коробочки «Сердце»", callback_data="prod_heart")],
         [InlineKeyboardButton("📞 Связь с магазином", url="https://t.me/fruttosmile")]
     ])
 
@@ -687,7 +687,8 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     time_map = {
-        #"time_13_17": "13:00–17:00",
+        "time_09_13": "09:00–13:00"
+        "time_13_17": "13:00–17:00",
         "time_17_21": "17:00–21:00"
     }
 
@@ -750,7 +751,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['state'] = 'WAIT_TIME'
 
             kb = InlineKeyboardMarkup([
-                #[InlineKeyboardButton("13:00–17:00", callback_data="time_13_17")],
+                [InlineKeyboardButton("09:00–13:00", callback_data="time_09_13")],
+                [InlineKeyboardButton("13:00–17:00", callback_data="time_13_17")],
                 [InlineKeyboardButton("17:00–21:00", callback_data="time_17_21")],
                 [InlineKeyboardButton("⬅️ Назад", callback_data="back_to_address")]
             ])
