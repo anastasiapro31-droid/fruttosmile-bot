@@ -687,7 +687,7 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     time_map = {
-        "time_09_13": "09:00–13:00"
+        "time_09_13": "09:00–13:00",
         "time_13_17": "13:00–17:00",
         "time_17_21": "17:00–21:00"
     }
