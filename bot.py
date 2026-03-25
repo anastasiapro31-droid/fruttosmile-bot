@@ -6,7 +6,7 @@ import random
 import requests
 from datetime import datetime, date, timedelta
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -118,8 +118,8 @@ async def check_birthdays(context: ContextTypes.DEFAULT_TYPE):
                             await context.bot.send_message(
                                 chat_id=int(chat_id),
                                 text=f"🎉 Скоро день рождения {name}!\n\n"
-                                     f"До праздника осталось {diff} дней 💝\n\n"
-                                     f"🎁 Успейте заказать подарок заранее",
+                                     f"Осталось всего {diff} дня 💝\n\n"
+                                     f"🎁 Пора выбрать подарок — закажите заранее",
                                 reply_markup=InlineKeyboardMarkup([
                                     [InlineKeyboardButton("🍓 Клубника", callback_data="prod_choco")],
                                     [InlineKeyboardButton("🎩 Шляпные", callback_data="prod_hat")],
@@ -181,231 +181,154 @@ PRODUCTS = {
     }
 }
 
-# ================= ФУНКЦИЯ ОТПРАВКИ СООБЩЕНИЯ О ДР =================
-async def send_birthday_message(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
+# ================= START =================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🍓 Клубника", callback_data="prod_choco")],
         [InlineKeyboardButton("🎩 Шляпные", callback_data="prod_hat")],
-        [InlineKeyboardButton("❤️ Сердце", callback_data="prod_heart")]
+        [InlineKeyboardButton("❤️ Сердце", callback_data="prod_heart")],
+        [InlineKeyboardButton("⚙️ Админка", callback_data="admin_menu")]
     ])
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text="🎉 У кого-то скоро день рождения!\n\nУспейте заказать подарок 🎁",
+
+    await update.message.reply_text(
+        "Добро пожаловать в Fruttosmile! 🍓\n\nВыберите категорию:",
         reply_markup=kb
     )
 
-# ================= ЗАПРОС ОТЗЫВА =================
-async def send_review_request(context: ContextTypes.DEFAULT_TYPE):
-    job = context.job
-    data = job.data
-    chat_id = data["chat_id"]
 
-    context.application.bot_data[chat_id] = {
-        "name": data.get("name"),
-        "phone": data.get("phone"),
-        "order_id": data.get("order_id")
-    }
+# ================= КОНТАКТ (исправлено — без дублей) =================
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    contact = update.message.contact
+    phone = normalize_phone(contact.phone_number)
 
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⭐1", callback_data="rate_1"),
-         InlineKeyboardButton("⭐2", callback_data="rate_2"),
-         InlineKeyboardButton("⭐3", callback_data="rate_3"),
-         InlineKeyboardButton("⭐4", callback_data="rate_4"),
-         InlineKeyboardButton("⭐5", callback_data="rate_5")]
-    ])
+    context.user_data["phone"] = phone
+    context.user_data["name"] = contact.first_name
 
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text="✨ Оцените ваш заказ от 1 до 5:",
-        reply_markup=keyboard
-    )
+    if users_sheet:
+        try:
+            # Ищем пользователя по chat_id (первая колонка)
+            cell = users_sheet.find(str(update.effective_user.id), in_column=1)
+            # Если найден — просто обновляем телефон
+            users_sheet.update_cell(cell.row, 4, phone)
+            print(f"Обновлён телефон для пользователя {update.effective_user.id}")
+        except:
+            # Если не найден — добавляем новую строку с 9 колонками
+            users_sheet.append_row([
+                update.effective_user.id,
+                contact.first_name,
+                "",      # колонка 3
+                phone,   # колонка 4
+                "", "", "", "", ""   # колонки 5-9
+            ])
+            print(f"Добавлен новый пользователь {update.effective_user.id}")
 
-# ================= РЕЙТИНГ =================
-async def rating_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Спасибо! Вы зарегистрированы ✅")
+
+
+# ================= АДМИНКА =================
+async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if context.user_data.get("rated"):
-        await query.answer("Вы уже оценили заказ ❤️")
-        return
-
-    context.user_data["rated"] = True
-    await query.edit_message_reply_markup(reply_markup=None)
-
-    rating = int(query.data.replace("rate_", ""))
-
-    user_data = context.application.bot_data.get(update.effective_user.id, {})
-    name = user_data.get("name", "Неизвестно")
-    phone = user_data.get("phone", "Нет телефона")
-    order_id = user_data.get("order_id", "—")
-
-    if rating == 5:
+    if query.data == "admin_menu":
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⭐ Оставить отзыв в 2ГИС", url=TWOGIS_REVIEW_URL)]
+            [InlineKeyboardButton("📢 Тест рассылки", callback_data="admin_test")],
+            [InlineKeyboardButton("📢 Сделать рассылку", callback_data="admin_send")],
+            [InlineKeyboardButton("📅 Запросить ДР", callback_data="admin_bday")]
+        ])
+        await query.message.reply_text("Админ-панель:", reply_markup=kb)
+
+    elif query.data == "admin_test":
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Добавить", callback_data="bday_add")],
+            [InlineKeyboardButton("❌ Не хочу", callback_data="bday_skip")]
         ])
 
-        await query.message.reply_text(
-            "💖 Спасибо большое за высокую оценку!\n\n"
-            "Нам будет очень приятно, если вы оставите отзыв ❤️",
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text="🧪 ТЕСТ ДР\n\n"
+                 "🎉 Добавьте дни рождения близких\n\n"
+                 "Мы напомним вам заранее, чтобы вы успели заказать подарок 🎁",
             reply_markup=kb
         )
 
-        await context.bot.send_message(
-            ADMIN_CHAT_ID,
-            f"🌟 Отличный отзыв!\n\n"
-            f"Заказ: {order_id}\n"
-            f"Оценка: {rating}\n"
-            f"Имя: {name}\n"
-            f"Телефон: {phone}\n"
-            f"ID: {update.effective_user.id}"
-        )
+        await query.message.reply_text("✅ Тест отправлен тебе")
 
-        context.application.bot_data.pop(update.effective_user.id, None)
+    elif query.data == "admin_send":
+        if not users_sheet:
+            await query.message.reply_text("❌ Таблица не подключена")
+            return
 
+        users = users_sheet.get_all_values()
+        count = 0
+
+        for row in users[1:]:
+            try:
+                chat_id = int(row[0])
+                if chat_id:
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text="🎁 У нас для вас есть кое-что вкусное!\n\n"
+                             "🍓 Закажите клубнику в шоколаде прямо сейчас 💝"
+                    )
+                    count += 1
+            except Exception as e:
+                print(f"Ошибка отправки обычной рассылки {row}: {e}")
+                continue
+
+        await query.message.reply_text(f"✅ Рассылка отправлена: {count} чел.")
+
+    elif query.data == "admin_bday":
+        if not users_sheet:
+            await query.message.reply_text("❌ Таблица не подключена")
+            return
+
+        users = users_sheet.get_all_values()
+        count = 0
+
+        for row in users[1:]:
+            try:
+                chat_id = int(row[0])
+
+                # Пропускаем тех, кто уже ответил
+                if len(row) > 8 and row[8] in ["added", "declined"]:
+                    continue
+
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("➕ Добавить", callback_data="bday_add")],
+                    [InlineKeyboardButton("❌ Не хочу", callback_data="bday_skip")]
+                ])
+
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text="🎉 Добавьте дни рождения близких\n\n"
+                         "Мы напомним вам заранее, чтобы вы успели заказать подарок 🎁",
+                    reply_markup=kb
+                )
+                count += 1
+            except Exception as e:
+                print(f"Ошибка отправки запроса ДР {row}: {e}")
+                continue
+
+        await query.message.reply_text(f"✅ Запрос ДР отправлен: {count} чел.")
+
+
+# ================= SHOW MAIN MENU =================
+async def show_main_menu(update, context):
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🍓 Клубника", callback_data="prod_choco")],
+        [InlineKeyboardButton("🎩 Шляпные", callback_data="prod_hat")],
+        [InlineKeyboardButton("❤️ Сердце", callback_data="prod_heart")],
+        [InlineKeyboardButton("⚙️ Админка", callback_data="admin_menu")]
+    ])
+
+    text = "Выберите категорию:"
+
+    if update.callback_query:
+        await update.callback_query.message.reply_text(text, reply_markup=kb)
     else:
-        context.user_data["state"] = "WAIT_FEEDBACK_TEXT"
-        context.user_data["last_rating"] = rating
-        await query.message.reply_text(
-            "Нам очень жаль, что что-то не понравилось 🙏\n"
-            "Пожалуйста, опишите проблему."
-        )
+        await update.message.reply_text(text, reply_markup=kb)
 
-# ================= TEXT HANDLER =================
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
-        return
-
-    state = context.user_data.get('state')
-    text = update.message.text.strip()
-
-    if state == "WAIT_FEEDBACK_TEXT":
-        feedback = text
-        rating = context.user_data.get("last_rating")
-        user_data = context.application.bot_data.get(update.effective_user.id, {})
-        name = user_data.get("name", "Неизвестно")
-        phone = user_data.get("phone", "Нет телефона")
-        order_id = user_data.get("order_id", "—")
-
-        await context.bot.send_message(
-            ADMIN_CHAT_ID,
-            f"⚠️ Негативный отзыв\n\n"
-            f"Заказ: {order_id}\n"
-            f"Оценка: {rating}\n"
-            f"Имя: {name}\n"
-            f"Телефон: {phone}\n"
-            f"ID: {update.effective_user.id}\n\n"
-            f"Комментарий:\n{feedback}"
-        )
-
-        await update.message.reply_text("Спасибо за обратную связь 🙏\nНаш менеджер свяжется с вами.")
-
-        context.user_data.pop("state", None)
-        context.user_data.pop("last_rating", None)
-        context.application.bot_data.pop(update.effective_user.id, None)
-        return
-
-    if state == 'WAIT_ADDRESS':
-        context.user_data['address'] = text
-        context.user_data['state'] = 'WAIT_DATE'
-        await update.message.reply_text("📅 Введите дату в формате ДД.ММ.ГГГГ")
-
-    elif state == 'WAIT_DATE':
-        try:
-            dt = datetime.strptime(text, "%d.%m.%Y")
-            if dt.date() < date.today():
-                await update.message.reply_text("Дата не может быть в прошлом.")
-                return
-            context.user_data['date'] = text
-            context.user_data['state'] = 'WAIT_TIME'
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("9:00–13:00", callback_data="time_9_13")],
-                [InlineKeyboardButton("13:00–17:00", callback_data="time_13_17")],
-                [InlineKeyboardButton("17:00–21:00", callback_data="time_17_21")]
-            ])
-            await update.message.reply_text("⏰ Выберите время:", reply_markup=kb)
-        except:
-            await update.message.reply_text("Введите дату в формате ДД.ММ.ГГГГ")
-
-    elif state == 'WAIT_COMMENT':
-        context.user_data['comment'] = text
-        context.user_data['state'] = 'WAIT_CONFIRM'
-        await show_order_preview(update, context)
-
-    elif state == "WAIT_BDAY_NAME":
-        context.user_data["bday_name"] = text
-        context.user_data["state"] = "WAIT_BDAY_DATE"
-        await update.message.reply_text("Введите дату в формате ДД.ММ")
-    elif state == "WAIT_BDAY_DATE":
-        if not birthdays_sheet:
-            await update.message.reply_text("Ошибка таблицы")
-            context.user_data.pop("state", None)
-            return
-        try:
-            datetime.strptime(text, "%d.%m")
-        except:
-            await update.message.reply_text("❌ Неверный формат. Введите ДД.ММ (например 05.09)")
-            return
-
-        name = context.user_data.get("bday_name")
-        phone = context.user_data.get("phone")
-        birthdays_sheet.append_row([phone, name, text, ""])
-        if users_sheet:
-            cell = users_sheet.find(str(update.effective_user.id), in_column=1)
-            if cell:
-                users_sheet.update_cell(cell.row, 9, "added")
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Добавить ещё", callback_data="bday_add")],
-            [InlineKeyboardButton("📋 Мои даты", callback_data="my_birthdays")]
-        ])
-        await update.message.reply_text("✅ Дата сохранена!", reply_markup=kb)
-        context.user_data.pop("state", None)
-
-# ================= ДНИ РОЖДЕНИЯ =================
-async def birthday_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if query.data == "bday_add":
-        context.user_data["state"] = "WAIT_BDAY_NAME"
-        await query.message.reply_text("Введите имя (например: Мама)")
-    elif query.data == "bday_skip":
-        if users_sheet:
-            cell = users_sheet.find(str(update.effective_user.id), in_column=1)
-            if cell:
-                users_sheet.update_cell(cell.row, 9, "declined")
-        await query.message.reply_text("Ок, больше не будем предлагать 👍")
-
-async def my_bdays_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if not birthdays_sheet:
-        await query.message.reply_text("Таблица не подключена")
-        return
-    phone = context.user_data.get("phone")
-    records = birthdays_sheet.get_all_records()
-    user_dates = [r for r in records if r.get("phone") == phone]
-    if not user_dates:
-        await query.message.reply_text("У вас пока нет дат")
-        return
-    text = "📅 Ваши даты:\n\n"
-    buttons = []
-    for i, r in enumerate(user_dates):
-        text += f"{i+1}. {r.get('name')} — {r.get('date')}\n"
-        buttons.append([InlineKeyboardButton(f"❌ Удалить {r.get('name')}", callback_data=f"delbday_{i}")])
-    buttons.append([InlineKeyboardButton("➕ Добавить", callback_data="bday_add")])
-    await query.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
-
-async def delete_bday_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if not birthdays_sheet:
-        return
-    index = int(query.data.split("_")[1])
-    phone = context.user_data.get("phone")
-    records = birthdays_sheet.get_all_records()
-    user_rows = [(i+2, r) for i, r in enumerate(records) if r.get("phone") == phone]
-    if index < len(user_rows):
-        birthdays_sheet.delete_rows(user_rows[index][0])
-    await query.message.reply_text("❌ Дата удалена")
 
 # ================= ЗАКАЗЫ =================
 async def product_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -602,7 +525,8 @@ async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("⬅️ Назад", callback_data="main_menu")]
         ])
         await query.message.reply_text("Выберите район доставки:", reply_markup=kb)
-        
+
+# ================= ДОСТАВКА И ОФОРМЛЕНИЕ =================
 async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -775,6 +699,218 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
 
     clear_order_data(context)
 
+# ================= РЕЙТИНГ =================
+async def send_review_request(context: ContextTypes.DEFAULT_TYPE):
+    job = context.job
+    data = job.data
+    chat_id = data["chat_id"]
+
+    context.application.bot_data[chat_id] = {
+        "name": data.get("name"),
+        "phone": data.get("phone"),
+        "order_id": data.get("order_id")
+    }
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("⭐1", callback_data="rate_1"),
+         InlineKeyboardButton("⭐2", callback_data="rate_2"),
+         InlineKeyboardButton("⭐3", callback_data="rate_3"),
+         InlineKeyboardButton("⭐4", callback_data="rate_4"),
+         InlineKeyboardButton("⭐5", callback_data="rate_5")]
+    ])
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="✨ Оцените ваш заказ от 1 до 5:",
+        reply_markup=keyboard
+    )
+
+async def rating_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if context.user_data.get("rated"):
+        await query.answer("Вы уже оценили заказ ❤️")
+        return
+
+    context.user_data["rated"] = True
+    await query.edit_message_reply_markup(reply_markup=None)
+
+    rating = int(query.data.replace("rate_", ""))
+
+    user_data = context.application.bot_data.get(update.effective_user.id, {})
+    name = user_data.get("name", "Неизвестно")
+    phone = user_data.get("phone", "Нет телефона")
+    order_id = user_data.get("order_id", "—")
+
+    if rating == 5:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⭐ Оставить отзыв в 2ГИС", url=TWOGIS_REVIEW_URL)]
+        ])
+
+        await query.message.reply_text(
+            "💖 Спасибо большое за высокую оценку!\n\n"
+            "Нам будет очень приятно, если вы оставите отзыв ❤️",
+            reply_markup=kb
+        )
+
+        await context.bot.send_message(
+            ADMIN_CHAT_ID,
+            f"🌟 Отличный отзыв!\n\n"
+            f"Заказ: {order_id}\n"
+            f"Оценка: {rating}\n"
+            f"Имя: {name}\n"
+            f"Телефон: {phone}\n"
+            f"ID: {update.effective_user.id}"
+        )
+
+        context.application.bot_data.pop(update.effective_user.id, None)
+
+    else:
+        context.user_data["state"] = "WAIT_FEEDBACK_TEXT"
+        context.user_data["last_rating"] = rating
+        await query.message.reply_text(
+            "Нам очень жаль, что что-то не понравилось 🙏\n"
+            "Пожалуйста, опишите проблему."
+        )
+
+# ================= TEXT HANDLER =================
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.text:
+        return
+
+    state = context.user_data.get('state')
+    text = update.message.text.strip()
+
+    if state == "WAIT_FEEDBACK_TEXT":
+        feedback = text
+        rating = context.user_data.get("last_rating")
+        user_data = context.application.bot_data.get(update.effective_user.id, {})
+        name = user_data.get("name", "Неизвестно")
+        phone = user_data.get("phone", "Нет телефона")
+        order_id = user_data.get("order_id", "—")
+
+        await context.bot.send_message(
+            ADMIN_CHAT_ID,
+            f"⚠️ Негативный отзыв\n\n"
+            f"Заказ: {order_id}\n"
+            f"Оценка: {rating}\n"
+            f"Имя: {name}\n"
+            f"Телефон: {phone}\n"
+            f"ID: {update.effective_user.id}\n\n"
+            f"Комментарий:\n{feedback}"
+        )
+
+        await update.message.reply_text("Спасибо за обратную связь 🙏\nНаш менеджер свяжется с вами.")
+
+        context.user_data.pop("state", None)
+        context.user_data.pop("last_rating", None)
+        context.application.bot_data.pop(update.effective_user.id, None)
+        return
+
+    if state == 'WAIT_ADDRESS':
+        context.user_data['address'] = text
+        context.user_data['state'] = 'WAIT_DATE'
+        await update.message.reply_text("📅 Введите дату в формате ДД.ММ.ГГГГ")
+
+    elif state == 'WAIT_DATE':
+        try:
+            dt = datetime.strptime(text, "%d.%m.%Y")
+            if dt.date() < date.today():
+                await update.message.reply_text("Дата не может быть в прошлом.")
+                return
+            context.user_data['date'] = text
+            context.user_data['state'] = 'WAIT_TIME'
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("9:00–13:00", callback_data="time_9_13")],
+                [InlineKeyboardButton("13:00–17:00", callback_data="time_13_17")],
+                [InlineKeyboardButton("17:00–21:00", callback_data="time_17_21")]
+            ])
+            await update.message.reply_text("⏰ Выберите время:", reply_markup=kb)
+        except:
+            await update.message.reply_text("Введите дату в формате ДД.ММ.ГГГГ")
+
+    elif state == 'WAIT_COMMENT':
+        context.user_data['comment'] = text
+        context.user_data['state'] = 'WAIT_CONFIRM'
+        await show_order_preview(update, context)
+
+    elif state == "WAIT_BDAY_NAME":
+        context.user_data["bday_name"] = text
+        context.user_data["state"] = "WAIT_BDAY_DATE"
+        await update.message.reply_text("Введите дату в формате ДД.ММ")
+    elif state == "WAIT_BDAY_DATE":
+        if not birthdays_sheet:
+            await update.message.reply_text("Ошибка таблицы")
+            context.user_data.pop("state", None)
+            return
+        try:
+            datetime.strptime(text, "%d.%m")
+        except:
+            await update.message.reply_text("❌ Неверный формат. Введите ДД.ММ (например 05.09)")
+            return
+
+        name = context.user_data.get("bday_name")
+        phone = context.user_data.get("phone")
+        birthdays_sheet.append_row([phone, name, text, ""])
+        if users_sheet:
+            cell = users_sheet.find(str(update.effective_user.id), in_column=1)
+            if cell:
+                users_sheet.update_cell(cell.row, 9, "added")
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Добавить ещё", callback_data="bday_add")],
+            [InlineKeyboardButton("📋 Мои даты", callback_data="my_birthdays")]
+        ])
+        await update.message.reply_text("✅ Дата сохранена!", reply_markup=kb)
+        context.user_data.pop("state", None)
+
+# ================= ДНИ РОЖДЕНИЯ =================
+async def birthday_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if query.data == "bday_add":
+        context.user_data["state"] = "WAIT_BDAY_NAME"
+        await query.message.reply_text("Введите имя (например: Мама)")
+    elif query.data == "bday_skip":
+        if users_sheet:
+            cell = users_sheet.find(str(update.effective_user.id), in_column=1)
+            if cell:
+                users_sheet.update_cell(cell.row, 9, "declined")
+        await query.message.reply_text("Ок, больше не будем предлагать 👍")
+
+async def my_bdays_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not birthdays_sheet:
+        await query.message.reply_text("Таблица не подключена")
+        return
+    phone = context.user_data.get("phone")
+    records = birthdays_sheet.get_all_records()
+    user_dates = [r for r in records if r.get("phone") == phone]
+    if not user_dates:
+        await query.message.reply_text("У вас пока нет дат")
+        return
+    text = "📅 Ваши даты:\n\n"
+    buttons = []
+    for i, r in enumerate(user_dates):
+        text += f"{i+1}. {r.get('name')} — {r.get('date')}\n"
+        buttons.append([InlineKeyboardButton(f"❌ Удалить {r.get('name')}", callback_data=f"delbday_{i}")])
+    buttons.append([InlineKeyboardButton("➕ Добавить", callback_data="bday_add")])
+    await query.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+
+async def delete_bday_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not birthdays_sheet:
+        return
+    index = int(query.data.split("_")[1])
+    phone = context.user_data.get("phone")
+    records = birthdays_sheet.get_all_records()
+    user_rows = [(i+2, r) for i, r in enumerate(records) if r.get("phone") == phone]
+    if index < len(user_rows):
+        birthdays_sheet.delete_rows(user_rows[index][0])
+    await query.message.reply_text("❌ Дата удалена")
+
 # ================= MAIN =================
 def main():
     signal.signal(signal.SIGINT, shutdown)
@@ -809,6 +945,7 @@ def main():
         print("✅ Автопроверка дней рождения запущена")
 
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
