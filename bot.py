@@ -914,7 +914,7 @@ def main():
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
-    if birthdays_sheet and users_sheet:
+    if birthdays_sheet and users_sheet and app.job_queue:
         app.job_queue.run_repeating(check_birthdays, interval=86400, first=10)
         print("✅ Автопроверка дней рождения запущена")
 
