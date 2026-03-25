@@ -20,11 +20,11 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # ================= НАСТРОЙКИ =================
-BOT_TOKEN = "мой токен"           
+BOT_TOKEN = "8539880271:AAHlIoQUbX5Mz-HW3jxKzSWlr7iXX5YgYF8"           
 ADMIN_CHAT_ID = 1165444045        
 
 RETAILCRM_URL = "https://xtv17101986.retailcrm.ru"
-RETAILCRM_API_KEY = "мой ключ"
+RETAILCRM_API_KEY = "6ipmvADZaxUSe3usdKOauTFZjjGMOlf7"
 
 TWOGIS_REVIEW_URL = "https://2gis.ru/irkutsk/firm/1548641653278292/104.353179%2C52.259892"
 
