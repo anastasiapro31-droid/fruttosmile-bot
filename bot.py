@@ -956,6 +956,12 @@ def main():
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    if app.job_queue is None:
+        from telegram.ext import JobQueue
+        job_queue = JobQueue()
+        job_queue.set_application(app)
+        app.job_queue = job_queue
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
 
