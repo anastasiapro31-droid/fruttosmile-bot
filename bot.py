@@ -267,6 +267,8 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Спасибо! Вы зарегистрированы ✅")
 
+    await show_main_menu(update, context)
+
 
 # ================= АДМИНКА =================
 async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
