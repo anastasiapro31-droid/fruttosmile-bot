@@ -41,13 +41,31 @@ try:
     gc = gspread.authorize(creds)
     spreadsheet = gc.open("Fruttosmile Bonus CRM")
 
-    users_sheet = spreadsheet.worksheet("users")
-    orders_sheet = spreadsheet.worksheet("orders")
-    birthdays_sheet = spreadsheet.worksheet("birthdays")
+    print("✅ Успешно подключились к Google Таблице: Fruttosmile Bonus CRM")
+    print("📋 Доступные листы:", [ws.title for ws in spreadsheet.worksheets()])
 
-    print("Google Sheets подключён успешно")
+    # Подключаем каждый лист отдельно — чтобы один неисправный не ломал всё
+    try:
+        users_sheet = spreadsheet.worksheet("users")
+        print("✅ Лист 'users' подключён")
+    except Exception as e:
+        logging.error(f"❌ Лист 'users' не найден: {e}")
+
+    try:
+        orders_sheet = spreadsheet.worksheet("orders")
+        print("✅ Лист 'orders' подключён")
+    except Exception as e:
+        logging.error(f"❌ Лист 'orders' не найден: {e}")
+
+    try:
+        birthdays_sheet = spreadsheet.worksheet("birthdays")
+        print("✅ Лист 'birthdays' подключён")
+    except Exception as e:
+        logging.error(f"❌ Лист 'birthdays' не найден: {e}")
+
 except Exception as e:
-    logging.error(f"Ошибка Google Sheets: {e}")
+    logging.error(f"❌ Критическая ошибка подключения к Google Sheets: {e}")
+
 
 # ================= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =================
 def normalize_phone(phone: str) -> str:
@@ -56,22 +74,29 @@ def normalize_phone(phone: str) -> str:
         digits = "7" + digits[1:]
     if digits.startswith("7") and len(digits) == 11:
         return "+" + digits
-    return "+" + digits
+    return "+" + digits if digits else ""
+
 
 def create_customer_if_not_exists(name: str, phone: str):
     if not RETAILCRM_URL or not RETAILCRM_API_KEY:
         return
     normalized = normalize_phone(phone)
+    if not normalized:
+        return
     phone_no_plus = normalized.replace("+", "")
     headers = {"X-API-KEY": RETAILCRM_API_KEY}
     try:
-        resp = requests.get(f"{RETAILCRM_URL}/api/v5/customers", headers=headers, params={"filter[phone]": phone_no_plus}, timeout=10)
+        resp = requests.get(f"{RETAILCRM_URL}/api/v5/customers", 
+                           headers=headers, 
+                           params={"filter[phone]": phone_no_plus}, 
+                           timeout=10)
         if resp.status_code == 200 and resp.json().get("customers"):
             return
         payload = {"customer": {"firstName": name or "Клиент", "phones": [{"number": phone_no_plus}]}}
         requests.post(f"{RETAILCRM_URL}/api/v5/customers/create", headers=headers, json=payload, timeout=10)
     except:
         pass
+
 
 def clear_order_data(context):
     keys_to_keep = ["name", "phone"]
@@ -83,10 +108,12 @@ def clear_order_data(context):
     context.user_data.pop("confirm_clicked", None)
     context.user_data.pop("rated", None)
 
+
 # ================= GRACEFUL SHUTDOWN =================
 def shutdown(signum, frame):
     print("Получен сигнал остановки. Завершаем бота...")
     sys.exit(0)
+
 
 # ================= АВТО ПРОВЕРКА ДНЕЙ РОЖДЕНИЯ =================
 async def check_birthdays(context: ContextTypes.DEFAULT_TYPE):
@@ -100,7 +127,8 @@ async def check_birthdays(context: ContextTypes.DEFAULT_TYPE):
     for idx, r in enumerate(records):
         try:
             bday_str = r.get("date") or r.get("Date")
-            if not bday_str: continue
+            if not bday_str: 
+                continue
             bday = datetime.strptime(bday_str, "%d.%m")
             target = bday.replace(year=today.year)
             if target.date() < today:
@@ -130,6 +158,7 @@ async def check_birthdays(context: ContextTypes.DEFAULT_TYPE):
                             break
         except Exception as e:
             logging.error(f"Ошибка при проверке ДР: {e}")
+
 
 # ================= КАТАЛОГ ТОВАРОВ =================
 PRODUCTS = {
@@ -181,6 +210,7 @@ PRODUCTS = {
     }
 }
 
+
 # ================= START =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = InlineKeyboardMarkup([
@@ -196,31 +226,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ================= КОНТАКТ (исправлено — без дублей) =================
+# ================= КОНТАКТ =================
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     contact = update.message.contact
     phone = normalize_phone(contact.phone_number)
 
     context.user_data["phone"] = phone
-    context.user_data["name"] = contact.first_name
+    context.user_data["name"] = contact.first_name or "Клиент"
 
     if users_sheet:
         try:
-            # Ищем пользователя по chat_id (первая колонка)
             cell = users_sheet.find(str(update.effective_user.id), in_column=1)
-            # Если найден — просто обновляем телефон
-            users_sheet.update_cell(cell.row, 4, phone)
-            print(f"Обновлён телефон для пользователя {update.effective_user.id}")
-        except:
-            # Если не найден — добавляем новую строку с 9 колонками
-            users_sheet.append_row([
-                update.effective_user.id,
-                contact.first_name,
-                "",      # колонка 3
-                phone,   # колонка 4
-                "", "", "", "", ""   # колонки 5-9
-            ])
-            print(f"Добавлен новый пользователь {update.effective_user.id}")
+            if cell:
+                users_sheet.update_cell(cell.row, 4, phone)
+                print(f"Обновлён телефон для пользователя {update.effective_user.id}")
+            else:
+                users_sheet.append_row([
+                    update.effective_user.id, 
+                    contact.first_name or "", 
+                    "", 
+                    phone, 
+                    "", "", "", "", ""
+                ])
+                print(f"Добавлен новый пользователь {update.effective_user.id}")
+        except Exception as e:
+            logging.error(f"Ошибка сохранения пользователя: {e}")
 
     await update.message.reply_text("Спасибо! Вы зарегистрированы ✅")
 
@@ -243,73 +273,57 @@ async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("➕ Добавить", callback_data="bday_add")],
             [InlineKeyboardButton("❌ Не хочу", callback_data="bday_skip")]
         ])
-
         await context.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
-            text="🧪 ТЕСТ ДР\n\n"
-                 "🎉 Добавьте дни рождения близких\n\n"
-                 "Мы напомним вам заранее, чтобы вы успели заказать подарок 🎁",
+            text="🧪 ТЕСТ ДР\n\n🎉 Добавьте дни рождения близких\n\nМы напомним вам заранее, чтобы вы успели заказать подарок 🎁",
             reply_markup=kb
         )
-
-        await query.message.reply_text("✅ Тест отправлен тебе")
+        await query.message.reply_text("✅ Тест отправлен администратору")
 
     elif query.data == "admin_send":
         if not users_sheet:
-            await query.message.reply_text("❌ Таблица не подключена")
+            await query.message.reply_text("❌ Таблица пользователей не подключена")
             return
-
         users = users_sheet.get_all_values()
         count = 0
-
         for row in users[1:]:
             try:
                 chat_id = int(row[0])
                 if chat_id:
                     await context.bot.send_message(
                         chat_id=chat_id,
-                        text="🎁 У нас для вас есть кое-что вкусное!\n\n"
-                             "🍓 Закажите клубнику в шоколаде прямо сейчас 💝"
+                        text="🎁 У нас для вас есть кое-что вкусное!\n\n🍓 Закажите клубнику в шоколаде прямо сейчас 💝"
                     )
                     count += 1
             except Exception as e:
-                print(f"Ошибка отправки обычной рассылки {row}: {e}")
+                print(f"Ошибка отправки рассылки: {e}")
                 continue
-
         await query.message.reply_text(f"✅ Рассылка отправлена: {count} чел.")
 
     elif query.data == "admin_bday":
         if not users_sheet:
-            await query.message.reply_text("❌ Таблица не подключена")
+            await query.message.reply_text("❌ Таблица пользователей не подключена")
             return
-
         users = users_sheet.get_all_values()
         count = 0
-
         for row in users[1:]:
             try:
                 chat_id = int(row[0])
-
-                # Пропускаем тех, кто уже ответил
                 if len(row) > 8 and row[8] in ["added", "declined"]:
                     continue
-
                 kb = InlineKeyboardMarkup([
                     [InlineKeyboardButton("➕ Добавить", callback_data="bday_add")],
                     [InlineKeyboardButton("❌ Не хочу", callback_data="bday_skip")]
                 ])
-
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text="🎉 Добавьте дни рождения близких\n\n"
-                         "Мы напомним вам заранее, чтобы вы успели заказать подарок 🎁",
+                    text="🎉 Добавьте дни рождения близких\n\nМы напомним вам заранее, чтобы вы успели заказать подарок 🎁",
                     reply_markup=kb
                 )
                 count += 1
             except Exception as e:
-                print(f"Ошибка отправки запроса ДР {row}: {e}")
+                print(f"Ошибка отправки запроса ДР: {e}")
                 continue
-
         await query.message.reply_text(f"✅ Запрос ДР отправлен: {count} чел.")
 
 
@@ -321,9 +335,7 @@ async def show_main_menu(update, context):
         [InlineKeyboardButton("❤️ Сердце", callback_data="prod_heart")],
         [InlineKeyboardButton("⚙️ Админка", callback_data="admin_menu")]
     ])
-
     text = "Выберите категорию:"
-
     if update.callback_query:
         await update.callback_query.message.reply_text(text, reply_markup=kb)
     else:
@@ -354,6 +366,7 @@ async def product_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "product_photo": product.get("photo") if product_key != "choco" else None
     })
     await show_step(query, context, product)
+
 
 async def show_step(query, context, product):
     step_index = context.user_data["step_index"]
@@ -390,6 +403,7 @@ async def show_step(query, context, product):
         await query.message.chat.send_photo(photo=photo, caption=caption, reply_markup=InlineKeyboardMarkup(buttons))
     else:
         await query.message.chat.send_message(caption, reply_markup=InlineKeyboardMarkup(buttons))
+
 
 async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -480,6 +494,7 @@ async def option_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         await query.message.reply_text("Выберите способ получения:", reply_markup=kb)
 
+
 async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -526,6 +541,7 @@ async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         await query.message.reply_text("Выберите район доставки:", reply_markup=kb)
 
+
 # ================= ДОСТАВКА И ОФОРМЛЕНИЕ =================
 async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -549,6 +565,7 @@ async def delivery_method_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data['state'] = 'WAIT_DATE'
         await query.message.chat.send_message("📅 Укажите дату самовывоза в формате ДД.ММ.ГГГГ")
 
+
 async def district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -567,11 +584,13 @@ async def district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     await query.message.chat.send_message(text, reply_markup=kb, parse_mode="Markdown")
 
+
 async def confirm_district_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     context.user_data['state'] = 'WAIT_ADDRESS'
     await query.message.chat.send_message("📍 Введите полный адрес доставки:")
+
 
 async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -582,12 +601,14 @@ async def time_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Без комментария", callback_data="no_comment")]])
     await query.message.chat.send_message("💬 Напишите пожелания к заказу:", reply_markup=kb)
 
+
 async def no_comment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     context.user_data['comment'] = "—"
     context.user_data['state'] = 'WAIT_CONFIRM'
     await show_order_preview(update, context)
+
 
 async def show_order_preview(update, context):
     d = context.user_data
@@ -598,6 +619,7 @@ async def show_order_preview(update, context):
         [InlineKeyboardButton("🔄 Изменить", callback_data="restart_order")]
     ])
     await update.effective_message.reply_text(text, reply_markup=kb, parse_mode="Markdown")
+
 
 async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -625,6 +647,7 @@ async def confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("🔄 Заказ сброшен. Начнём заново.")
         await show_main_menu(update, context)
 
+
 async def show_payment_options(update, context):
     method = context.user_data.get("method")
     if method == "Самовывоз":
@@ -640,6 +663,7 @@ async def show_payment_options(update, context):
         ])
     await update.effective_message.reply_text("💳 Выберите способ оплаты:", reply_markup=kb)
 
+
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -652,6 +676,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
         )
         await finish_order(update, context, status="Ожидает оплаты")
+
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, status="Создан"):
     d = context.user_data
@@ -699,6 +724,7 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE, statu
 
     clear_order_data(context)
 
+
 # ================= РЕЙТИНГ =================
 async def send_review_request(context: ContextTypes.DEFAULT_TYPE):
     job = context.job
@@ -724,6 +750,7 @@ async def send_review_request(context: ContextTypes.DEFAULT_TYPE):
         text="✨ Оцените ваш заказ от 1 до 5:",
         reply_markup=keyboard
     )
+
 
 async def rating_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -773,6 +800,7 @@ async def rating_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Нам очень жаль, что что-то не понравилось 🙏\n"
             "Пожалуйста, опишите проблему."
         )
+
 
 # ================= TEXT HANDLER =================
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -841,7 +869,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Введите дату в формате ДД.ММ")
     elif state == "WAIT_BDAY_DATE":
         if not birthdays_sheet:
-            await update.message.reply_text("Ошибка таблицы")
+            await update.message.reply_text("⏳ Функция дней рождения временно недоступна.")
             context.user_data.pop("state", None)
             return
         try:
@@ -854,15 +882,19 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         phone = context.user_data.get("phone")
         birthdays_sheet.append_row([phone, name, text, ""])
         if users_sheet:
-            cell = users_sheet.find(str(update.effective_user.id), in_column=1)
-            if cell:
-                users_sheet.update_cell(cell.row, 9, "added")
+            try:
+                cell = users_sheet.find(str(update.effective_user.id), in_column=1)
+                if cell:
+                    users_sheet.update_cell(cell.row, 9, "added")
+            except:
+                pass
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Добавить ещё", callback_data="bday_add")],
             [InlineKeyboardButton("📋 Мои даты", callback_data="my_birthdays")]
         ])
         await update.message.reply_text("✅ Дата сохранена!", reply_markup=kb)
         context.user_data.pop("state", None)
+
 
 # ================= ДНИ РОЖДЕНИЯ =================
 async def birthday_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -873,16 +905,20 @@ async def birthday_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Введите имя (например: Мама)")
     elif query.data == "bday_skip":
         if users_sheet:
-            cell = users_sheet.find(str(update.effective_user.id), in_column=1)
-            if cell:
-                users_sheet.update_cell(cell.row, 9, "declined")
+            try:
+                cell = users_sheet.find(str(update.effective_user.id), in_column=1)
+                if cell:
+                    users_sheet.update_cell(cell.row, 9, "declined")
+            except:
+                pass
         await query.message.reply_text("Ок, больше не будем предлагать 👍")
+
 
 async def my_bdays_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     if not birthdays_sheet:
-        await query.message.reply_text("Таблица не подключена")
+        await query.message.reply_text("⏳ Функция дней рождения временно недоступна.")
         return
     phone = context.user_data.get("phone")
     records = birthdays_sheet.get_all_records()
@@ -898,6 +934,7 @@ async def my_bdays_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons.append([InlineKeyboardButton("➕ Добавить", callback_data="bday_add")])
     await query.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
 
+
 async def delete_bday_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -910,6 +947,7 @@ async def delete_bday_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if index < len(user_rows):
         birthdays_sheet.delete_rows(user_rows[index][0])
     await query.message.reply_text("❌ Дата удалена")
+
 
 # ================= MAIN =================
 def main():
@@ -940,10 +978,14 @@ def main():
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
+    # Автопроверка дней рождения
     if birthdays_sheet and users_sheet:
         app.job_queue.run_repeating(check_birthdays, interval=86400, first=10)
         print("✅ Автопроверка дней рождения запущена")
+    else:
+        print("⚠️ Автопроверка ДР не запущена (отсутствует birthdays_sheet или users_sheet)")
 
+    print("🤖 Бот успешно запущен!")
     app.run_polling()
 
 
