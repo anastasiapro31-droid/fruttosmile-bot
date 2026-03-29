@@ -914,7 +914,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📋 Мои даты", callback_data="my_birthdays")]
         ])
         await update.message.reply_text("✅ Дата сохранена!", reply_markup=kb)
+        
         context.user_data.pop("state", None)
+        
+        # 👉 ВОЗВРАТ В ГЛАВНОЕ МЕНЮ
+        await show_main_menu(update, context)
+
 
 
 # ================= ДНИ РОЖДЕНИЯ =================
@@ -942,8 +947,21 @@ async def my_bdays_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("⏳ Функция дней рождения временно недоступна.")
         return
     phone = context.user_data.get("phone")
+    
+    # если нет телефона — берём из users
+    if not phone and users_sheet:
+        try:
+            cell = users_sheet.find(str(update.effective_user.id), in_column=1)
+            if cell:
+                phone = users_sheet.cell(cell.row, 4).value
+        except:
+            pass
+    
+    # теперь нормализуем
+    phone = normalize_phone(phone) 
+    
     records = birthdays_sheet.get_all_records()
-    user_dates = [r for r in records if r.get("phone") == phone]
+    user_dates = [r for r in records if normalize_phone(r.get("phone")) == phone]
     if not user_dates:
         await query.message.reply_text("У вас пока нет дат")
         return
@@ -963,8 +981,19 @@ async def delete_bday_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     index = int(query.data.split("_")[1])
     phone = context.user_data.get("phone")
+    
+    # если нет телефона — берём из users
+    if not phone and users_sheet:
+        try:
+            cell = users_sheet.find(str(update.effective_user.id), in_column=1)
+            if cell:
+                phone = users_sheet.cell(cell.row, 4).value
+        except:
+            pass
+    
+    phone = normalize_phone(phone)
     records = birthdays_sheet.get_all_records()
-    user_rows = [(i+2, r) for i, r in enumerate(records) if r.get("phone") == phone]
+    user_rows = [(i+2, r) for i, r in enumerate(records) if normalize_phone(r.get("phone")) == normalize_phone(phone)
     if index < len(user_rows):
         birthdays_sheet.delete_rows(user_rows[index][0])
     await query.message.reply_text("❌ Дата удалена")
