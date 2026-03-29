@@ -906,7 +906,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # сохраняем обратно в память (ВАЖНО)
         context.user_data["phone"] = phone
 
-birthdays_sheet.append_row([phone, name, text, ""])
+        birthdays_sheet.append_row([phone, name, text, ""])
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Добавить ещё", callback_data="bday_add")],
             [InlineKeyboardButton("📋 Мои даты", callback_data="my_birthdays")]
