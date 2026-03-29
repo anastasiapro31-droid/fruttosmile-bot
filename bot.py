@@ -213,6 +213,19 @@ PRODUCTS = {
 
 # ================= START =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get("phone"):
+        kb = ReplyKeyboardMarkup(
+            [[KeyboardButton("📱 Поделиться номером", request_contact=True)]],
+            resize_keyboard=True,
+            one_time_keyboard=True
+        )
+
+        await update.message.reply_text(
+            "📱 Для начала работы отправьте номер телефона",
+            reply_markup=kb
+        )
+        return
+
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🍓 Клубника", callback_data="prod_choco")],
         [InlineKeyboardButton("🎩 Шляпные", callback_data="prod_hat")],
@@ -880,14 +893,20 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         name = context.user_data.get("bday_name")
         phone = context.user_data.get("phone")
-        birthdays_sheet.append_row([phone, name, text, ""])
-        if users_sheet:
+        
+        # если нет телефона в памяти — берём из users
+        if not phone and users_sheet:
             try:
                 cell = users_sheet.find(str(update.effective_user.id), in_column=1)
                 if cell:
-                    users_sheet.update_cell(cell.row, 9, "added")
+                    phone = users_sheet.cell(cell.row, 4).value
             except:
                 pass
+        
+        # сохраняем обратно в память (ВАЖНО)
+        context.user_data["phone"] = phone
+
+birthdays_sheet.append_row([phone, name, text, ""])
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Добавить ещё", callback_data="bday_add")],
             [InlineKeyboardButton("📋 Мои даты", callback_data="my_birthdays")]
